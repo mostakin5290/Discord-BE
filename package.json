@@ -9,10 +9,12 @@
     "build": "tsc -b",
     "start": "nodemon dist/index.js"
   },
-
   "dependencies": {
-    "@prisma/client": "^6.19.1",
+    "@prisma/adapter-pg": "^7.2.0",
+    "@prisma/client": "^7.2.0",
+    "@types/pg": "^8.16.0",
     "bcryptjs": "^3.0.3",
+    "cloudinary": "^2.8.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
@@ -25,7 +27,10 @@
     "passport-github2": "^0.1.12",
     "passport-google-oauth20": "^2.0.0",
     "pg": "^8.16.3",
-    "prisma": "^6.19.1"
+    "prisma": "^7.2.0",
+    "tsx": "^4.21.0",
+    "uploadthing": "^7.7.4",
+    "zod": "^4.3.4"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

@@ -4,26 +4,89 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+}
+
+enum MemberRole {
+  ADMIN
+  MODERATOR
+  GUEST
+}
+
+enum ChannelType {
+  TEXT
+  AUDIO
+  VIDEO
 }
 
 model User {
-  id        String  @id @default(uuid())
-  email     String  @unique
-  firstName String
-  lastName  String
-  username  String  @unique
-  imageUrl  String?
-  password  String?
-  provider  String?
-  socialId  String?
-  accessToken String?
+  id           String    @id @default(uuid())
+  email        String    @unique
+  firstName    String
+  lastName     String
+  username     String    @unique
+  imageUrl     String?
+  password     String?
+  provider     String?
+  socialId     String?
+  accessToken  String?
   refreshToken String?
-
-
+  channels     Channel[]
 
   bio String? @db.VarChar(500)
 
+  servers Server[]
+  members Member[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Server {
+  id         String  @id @default(cuid())
+  name       String
+  imageUrl   String
+  bio        String? @db.VarChar(500)
+  inviteCode String?  @unique
+
+  userId   String
+  members  Member[]
+  channels Channel[]
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Member {
+  id       String     @id @default(cuid())
+  role     MemberRole @default(GUEST)
+  userId   String
+  serverId String
+  user     User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  server   Server     @relation(fields: [serverId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([serverId])
+}
+
+model Channel {
+  id       String      @id @default(cuid())
+  name     String
+  type     ChannelType @default(TEXT)
+  userId   String
+  serverId String
+  user     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  server   Server      @relation(fields: [serverId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([serverId])
 }

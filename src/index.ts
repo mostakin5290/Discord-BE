@@ -6,6 +6,8 @@ import { globalErrorHandler } from "./middleware/errorHandler.js";
 import client from "./config/db.js";
 import serverRoutes from "./routes/server.routes.js";
 import authRoutes from "./routes/auth.routes.js";
+import uploadRoutes from "./routes/upload.routes.js";
+import messageRoutes from "./routes/message.routes.js";
 
 import dotenv from "dotenv";
 dotenv.config();
@@ -26,13 +28,13 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.text());
 
 import passport from "./config/passport.js";
-import uploadRoutes from "./routes/upload.routes.js";
 app.use(passport.initialize());
 
 // Main routes
-app.use("/api/auth", authRoutes);
+app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/server", serverRoutes);
-app.use("/api/v1/upload", uploadRoutes)
+app.use("/api/v1/upload", uploadRoutes);
+app.use("/api/v1/messages", messageRoutes);
 
 app.get("/health", (req, res) => {
   res.status(200).json({
@@ -53,4 +55,3 @@ app.listen(port, async () => {
     process.exit(1);
   }
 });
-

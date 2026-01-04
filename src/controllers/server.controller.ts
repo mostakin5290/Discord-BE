@@ -1,52 +1,264 @@
 import type { Request, Response } from "express";
 import client from "../config/db.js";
 import { CreateServerSchema } from "../types/index.js";
+import type { AuthRequest } from "../middleware/user.middleware.js";
+import { catchAsync } from "../utils/catchAsync.js";
+import { AppError } from "../utils/AppError.js";
+import { nanoid } from "nanoid";
 
-export const createServer = async (req: Request, res: Response) => {
-    try {
-        const { success, data } = CreateServerSchema.safeParse(req.body);
+export const createServer = catchAsync(
+  async (req: AuthRequest, res: Response) => {
+    const { success, data } = CreateServerSchema.safeParse(req.body);
 
-        if (!success) {
-            res.status(400).json({
-                success: false,
-                message: "Invalid data",
-            });
-        }
-
-        // TODO: Create vectors and upload it to the vector db!
-
-        const server = await client.server.create({
-            data: {
-                name: data?.name ?? "",
-                imageUrl: data?.imageUrl ?? "",
-                bio: data?.bio ?? "",
-                userId: "",
-                members: {
-                    create: {
-                        role: "ADMIN",
-                        userId: ""
-                    }
-                },
-                channels: {
-                    create: {
-                        name: "general",
-                        type: "TEXT",
-                        userId: ""
-                    }
-                }
-            }
-        });
-
-        res.status(201).json({
-            success: true,
-            message: "Server created successfully",
-            server: server
-        })
-    } catch (e) {
-        console.log(e);
-        res.status(500).json({
-            success: false,
-            message: "failed to create server",
-        })
+    if (!success) {
+      throw new AppError("Invalid data", 400);
     }
-};
+
+    const userId = req.userId!;
+    const inviteCode = nanoid(10);
+
+    const server = await client.server.create({
+      data: {
+        name: data?.name ?? "",
+        imageUrl: data?.imageUrl ?? "",
+        bio: data?.bio ?? "",
+        inviteCode,
+        userId,
+        members: {
+          create: {
+            role: "ADMIN",
+            userId,
+          },
+        },
+        channels: {
+          create: {
+            name: "general",
+            type: "TEXT",
+            userId,
+          },
+        },
+      },
+      include: {
+        members: true,
+        channels: true,
+      },
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Server created successfully",
+      server,
+    });
+  }
+);
+
+export const getUserServers = catchAsync(
+  async (req: AuthRequest, res: Response) => {
+    const userId = req.userId!;
+
+    const servers = await client.server.findMany({
+      where: {
+        members: {
+          some: {
+            userId,
+          },
+        },
+      },
+      include: {
+        channels: true,
+        members: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+                imageUrl: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      servers,
+    });
+  }
+);
+
+export const getServerById = catchAsync(
+  async (req: AuthRequest, res: Response) => {
+    const { serverId } = req.params;
+    const userId = req.userId!;
+
+    if (!serverId) {
+      throw new AppError("Server ID is required", 400);
+    }
+
+    const server = await client.server.findFirst({
+      where: {
+        id: serverId,
+        members: {
+          some: {
+            userId,
+          },
+        },
+      },
+      include: {
+        channels: {
+          orderBy: {
+            createdAt: "asc",
+          },
+        },
+        members: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+                firstName: true,
+                lastName: true,
+                imageUrl: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!server) {
+      throw new AppError("Server not found or you are not a member", 404);
+    }
+
+    res.status(200).json({
+      success: true,
+      server,
+    });
+  }
+);
+
+export const joinServer = catchAsync(
+  async (req: AuthRequest, res: Response) => {
+    const { inviteCode } = req.body;
+    const userId = req.userId!;
+
+    if (!inviteCode) {
+      throw new AppError("Invite code is required", 400);
+    }
+
+    const server = await client.server.findUnique({
+      where: { inviteCode },
+    });
+
+    if (!server) {
+      throw new AppError("Invalid invite code", 404);
+    }
+
+    // Check if already a member
+    const existingMember = await client.member.findFirst({
+      where: {
+        userId,
+        serverId: server.id,
+      },
+    });
+
+    if (existingMember) {
+      throw new AppError("You are already a member of this server", 400);
+    }
+
+    // Add user as member
+    await client.member.create({
+      data: {
+        userId,
+        serverId: server.id,
+        role: "GUEST",
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Successfully joined the server",
+      serverId: server.id,
+    });
+  }
+);
+
+export const createChannel = catchAsync(
+  async (req: AuthRequest, res: Response) => {
+    const { serverId } = req.params;
+    const { name, type } = req.body;
+    const userId = req.userId!;
+
+    if (!serverId) {
+      throw new AppError("Server ID is required", 400);
+    }
+
+    if (!name) {
+      throw new AppError("Channel name is required", 400);
+    }
+
+    // Check if user is admin or moderator
+    const member = await client.member.findFirst({
+      where: {
+        userId,
+        serverId,
+        role: {
+          in: ["ADMIN", "MODERATOR"],
+        },
+      },
+    });
+
+    if (!member) {
+      throw new AppError("You don't have permission to create channels", 403);
+    }
+
+    const channel = await client.channel.create({
+      data: {
+        name,
+        type: type || "TEXT",
+        userId,
+        serverId: serverId,
+      },
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Channel created successfully",
+      channel,
+    });
+  }
+);
+
+export const getServerChannels = catchAsync(
+  async (req: AuthRequest, res: Response) => {
+    const { serverId } = req.params;
+    const userId = req.userId!;
+
+    if (!serverId) {
+      throw new AppError("Server ID is required", 400);
+    }
+
+    // Verify user is a member
+    const member = await client.member.findFirst({
+      where: {
+        userId,
+        serverId,
+      },
+    });
+
+    if (!member) {
+      throw new AppError("You are not a member of this server", 403);
+    }
+
+    const channels = await client.channel.findMany({
+      where: { serverId: serverId },
+      orderBy: { createdAt: "asc" },
+    });
+
+    res.status(200).json({
+      success: true,
+      channels,
+    });
+  }
+);

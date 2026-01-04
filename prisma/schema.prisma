@@ -31,6 +31,7 @@ model User {
   accessToken  String?
   refreshToken String?
   channels     Channel[]
+  messages     Message[]
 
   bio String? @db.VarChar(500)
 
@@ -83,10 +84,29 @@ model Channel {
   serverId String
   user     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   server   Server      @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  messages Message[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([userId])
   @@index([serverId])
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  content   String   @db.Text
+  fileUrl   String?
+  channelId String
+  userId    String
+  channel   Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  deleted   Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([channelId])
+  @@index([userId])
 }

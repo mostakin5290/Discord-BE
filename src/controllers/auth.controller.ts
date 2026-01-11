@@ -16,6 +16,7 @@ export const signup = catchAsync(async (req: Request, res: Response) => {
   }
 
   const result = await AuthService.signup(body);
+  console.log(result);
   res.status(201).json({
     message: "User created successfully",
     ...result,
@@ -26,6 +27,7 @@ export const login = catchAsync(async (req: Request, res: Response) => {
   let body = req.body;
   if (typeof body === "string") {
     try {
+      console.log(body);
       body = JSON.parse(body);
     } catch (e) {
       // not JSON
@@ -50,5 +52,27 @@ export const socialCallback = catchAsync(async (req: Request, res: Response) => 
   });
 
   res.redirect(`${env.FRONTEND_BASE_URL}/auth/success?token=${token}`);
+});
+
+// Get current authenticated user profile
+export const getMe = catchAsync(async (req: Request, res: Response) => {
+  // req.user is set by the protect middleware
+  const user = (req as any).user;
+  
+  if (!user) {
+    throw new AppError("User not found", 404);
+  }
+
+  res.status(200).json({
+    user: {
+      id: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      username: user.username,
+      email: user.email,
+      imageUrl: user.imageUrl,
+      bio: user.bio,
+    },
+  });
 });
 

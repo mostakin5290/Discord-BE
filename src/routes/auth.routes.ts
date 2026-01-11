@@ -4,14 +4,19 @@ import {
   login,
   signup,
   socialCallback,
+  getMe,
 } from "../controllers/auth.controller.js";
 import multer from "multer";
+import { protect } from "../middleware/user.middleware.js";
 
 const router = Router();
 const upload = multer();
 
 router.post("/signup", upload.none(), signup);
 router.post("/login", upload.none(), login);
+
+// Get current authenticated user
+router.get("/me", protect, getMe);
 
 // Google Auth
 router.get(

@@ -74,6 +74,7 @@ model Member {
 
   @@index([userId])
   @@index([serverId])
+  @@unique([userId, serverId])
 }
 
 model Channel {

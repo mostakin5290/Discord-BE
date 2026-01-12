@@ -164,8 +164,13 @@ export const joinServer = catchAsync(
     });
 
     if (existingMember) {
-      throw new AppError("You are already a member of this server", 400);
-    }
+      res.status(201).json({
+        success: true,
+        message: "You are already a member of this server"
+      });
+
+      return;
+    };
 
     // Add user as member
     await client.member.create({
@@ -262,3 +267,106 @@ export const getServerChannels = catchAsync(
     });
   }
 );
+
+export const leaveServer = catchAsync(
+  async (req: AuthRequest, res: Response) => {
+    const { serverId } = req.params;
+    const userId = req.userId!;
+
+    if (!serverId) {
+      throw new AppError("Server ID is required", 400);
+    }
+
+    const searchMember = await client.member.findFirst({
+      where: {
+        userId: userId ?? "",
+        serverId: serverId ?? "",
+      },
+      select: {
+        id: true,
+        role: true,
+      }
+    });
+
+    if (!searchMember || !searchMember?.id || searchMember.role === "ADMIN") {
+      res.status(404).json({
+        success: false,
+        error: "Member not exist or Member is Admin"
+      })
+    };
+
+    // Remove from the Members of the server
+    const removeMember = await client.member.delete({
+      where: {
+        id: searchMember?.id ?? "",
+        serverId: serverId ?? "",
+      },
+    });
+
+    if (!removeMember) {
+      res.status(403).json({
+        success: false,
+        error: "Failed to remove member"
+      })
+    };
+
+    res.status(200).json({
+      success: true,
+      message: "Member left successfully"
+    })
+  }
+);
+
+export const inviteCodeJoin = catchAsync(
+  async (req: AuthRequest, res: Response) => {
+    const userId = req.userId;
+    const { invitecode, serverId } = req.params;
+
+    if (!serverId || !invitecode) {
+      throw new AppError("Server ID & InviteCode is required", 400);
+    }
+
+    const isValidInViteCode = await client.server.findFirst({
+      where: {
+        id: serverId ?? "",
+        inviteCode: invitecode ?? "",
+      }
+    });
+
+    if (!isValidInViteCode) {
+      res.status(404).json({
+        success: false,
+        error: "InviteCode not Valid"
+      })
+    };
+
+    // If user is member already
+    const alreadyMember = await client.member.findFirst({
+      where: {
+        serverId: serverId ?? "",
+        userId: userId ?? ""
+      }
+    });
+
+    if (alreadyMember?.id) {
+      res.status(400).json({
+        success: true,
+        message: "User is Already a Member in this server"
+      })
+    };
+
+    // Add the user to serve as Member.
+    const addAsMember = await client.member.create({
+      data: {
+        role: "GUEST",
+        serverId: serverId ?? "",
+        userId: userId ?? ""
+      }
+    });
+
+    res.status(404).json({
+      success: false,
+      message: "Member added to server"
+    })
+  }
+)

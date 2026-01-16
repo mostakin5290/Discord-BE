@@ -5,6 +5,8 @@ import type { AuthRequest } from "../middleware/user.middleware.js";
 import { catchAsync } from "../utils/catchAsync.js";
 import { AppError } from "../utils/AppError.js";
 import { nanoid } from "nanoid";
+import { pineconeIndex } from "../config/pinecone.js";
+import { createEmbedding } from "../utils/embedding.js";
 
 export const createServer = catchAsync(
   async (req: AuthRequest, res: Response) => {
@@ -17,6 +19,7 @@ export const createServer = catchAsync(
     const userId = req.userId!;
     const inviteCode = nanoid(10);
 
+    // Create server in database
     const server = await client.server.create({
       data: {
         name: data?.name ?? "",
@@ -43,6 +46,25 @@ export const createServer = catchAsync(
         channels: true,
       },
     });
+
+    if (!server.bio) {
+      throw new AppError("Server bio is required", 400);
+    }
+
+    // TODO: This part needs to be done in a background job
+
+    const serverEmbeddings = await createEmbedding(server?.bio);
+
+    // Create server - vector in Pinecone
+    const upsertVectorResponse = await pineconeIndex.upsert([
+      {
+        id: server?.id,
+        values: serverEmbeddings,
+        metadata: {
+          serverBio: server?.bio,
+        }
+      },
+    ]);
 
     res.status(201).json({
       success: true,

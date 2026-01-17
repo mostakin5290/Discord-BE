@@ -20,5 +20,8 @@ export const env = {
     APP_SECRET: process.env.FACEBOOK_APP_SECRET || "",
   },
   DATABASE_URL: process.env.DATABASE_URL || "",
+  PINECONE: {
+    API_KEY: process.env.PINECONE_API_KEY || "",
+    INDEX_NAME: process.env.PINECONE_INDEX_NAME || "",
+  },
 };
-

@@ -16,7 +16,7 @@ export const signup = catchAsync(async (req: Request, res: Response) => {
   }
 
   const result = await AuthService.signup(body);
-  console.log(result);
+  // console.log(result);
   res.status(201).json({
     message: "User created successfully",
     ...result,
@@ -27,7 +27,7 @@ export const login = catchAsync(async (req: Request, res: Response) => {
   let body = req.body;
   if (typeof body === "string") {
     try {
-      console.log(body);
+      // console.log(body);
       body = JSON.parse(body);
     } catch (e) {
       // not JSON

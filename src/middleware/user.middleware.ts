@@ -63,3 +63,5 @@ export const protect = async (
     next(error);
   }
 };
+
+export const authenticate = protect;

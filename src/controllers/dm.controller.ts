@@ -101,8 +101,10 @@ export const getConversations = catchAsync(
         });
 
         return {
-          conversationId: conversation.id,
-          friend,
+          id: conversation.id,
+          conversationId: conversation.id, // Keep for backward compatibility if needed
+          participantId: friendId,
+          participant: friend,
           lastMessage,
           unreadCount,
           updatedAt: conversation.updatedAt,

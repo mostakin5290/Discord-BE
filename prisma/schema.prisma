@@ -39,6 +39,11 @@ model User {
   channels     Channel[]
   messages     Message[]
 
+  //add otp Field
+  resetOtp       String?
+  isOtpVerified  Boolean  @default(false)
+  otpExpires     DateTime?
+
   bio String? @db.VarChar(500)
 
   servers Server[]

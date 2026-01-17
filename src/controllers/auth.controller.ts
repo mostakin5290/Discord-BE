@@ -41,6 +41,79 @@ export const login = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+
+//forgot Password / reset Password
+export const sendOtp = catchAsync(async (req: Request, res: Response) => {
+
+  let body = req.body;
+  if (typeof body === "string") {
+    try {
+      // console.log(body);
+      body = JSON.parse(body);
+    } catch (e) {
+      // not JSON
+    }
+  }
+
+  const result = await AuthService.sendOtp(body);
+
+  res.status(200).json({
+    status: "OTP send successfully",
+    ...result,
+  });
+
+
+
+})
+
+//verify Otp (works properly)
+export const verifyOtp = catchAsync(async (req: Request, res: Response) => {
+
+  let body = req.body;
+  if (typeof body === "string") {
+    try {
+      // console.log(body);
+      body = JSON.parse(body);
+    } catch (e) {
+      // not JSON
+    }
+  }
+
+  const result = await AuthService.verifyOtp(body);
+
+  res.status(200).json({
+    message: "OTP verify successfully",
+    ...result,
+  });
+
+
+})
+
+
+//reset Password
+export const resetPassword = catchAsync(async (req: Request, res: Response) => {
+
+  let body = req.body;
+  if (typeof body === "string") {
+    try {
+      // console.log(body);
+      body = JSON.parse(body);
+    } catch (e) {
+      // not JSON
+    }
+  }
+
+  const result = await AuthService.resetPassword(body);
+
+  res.status(200).json({
+    message: "Password reset successfully",
+    ...result,
+  });
+
+
+})
+
+
 export const socialCallback = catchAsync(async (req: Request, res: Response) => {
   const user = req.user as any;
   if (!user) {
@@ -58,7 +131,7 @@ export const socialCallback = catchAsync(async (req: Request, res: Response) => 
 export const getMe = catchAsync(async (req: Request, res: Response) => {
   // req.user is set by the protect middleware
   const user = (req as any).user;
-  
+
   if (!user) {
     throw new AppError("User not found", 404);
   }

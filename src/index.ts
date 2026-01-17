@@ -8,6 +8,9 @@ import serverRoutes from "./routes/server.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 import uploadRoutes from "./routes/upload.routes.js";
 import messageRoutes from "./routes/message.routes.js";
+import friendRoutes from "./routes/friend.routes.js";
+import dmRoutes from "./routes/dm.routes.js";
+import dmActionsRoutes from "./routes/dm-actions.routes.js";
 
 import dotenv from "dotenv";
 dotenv.config();
@@ -35,6 +38,9 @@ app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/server", serverRoutes);
 app.use("/api/v1/upload", uploadRoutes);
 app.use("/api/v1/messages", messageRoutes);
+app.use("/api/v1/friends", friendRoutes);
+app.use("/api/v1/dm", dmRoutes);
+app.use("/api/v1/dm-actions", dmActionsRoutes);
 
 app.get("/health", (req, res) => {
   res.status(200).json({
@@ -44,12 +50,16 @@ app.get("/health", (req, res) => {
 
 app.use(globalErrorHandler);
 
+import { initSocket } from "./socket.js";
+
 // Start Backend
-app.listen(port, async () => {
+const server = app.listen(port, async () => {
   console.log(`Server running at http://localhost:${port}`);
   try {
     await client.$connect();
     console.log("Database connected successfully");
+    initSocket(server);
+    console.log("Socket.IO initialized");
   } catch (error) {
     console.error("Database connection failed:", error);
     process.exit(1);

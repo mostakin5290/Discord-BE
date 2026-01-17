@@ -4,6 +4,9 @@ import jwt from "jsonwebtoken";
 import { env } from "../config/env.js";
 import { AppError } from "../utils/AppError.js";
 
+import { sendOtpMail } from "../utils/mailer.js";
+import { success } from "zod/v4";
+
 export class AuthService {
   static async signup(data: any) {
     const { firstName, lastName, username, email, password } = data;
@@ -130,7 +133,139 @@ export class AuthService {
         },
       });
     }
-    
+
     return user;
   }
+
+
+  //forgot password 
+  //send Otp 
+  static async sendOtp(data: any) {
+    const { email } = data;
+    console.log(email);
+
+    if (!email) {
+      throw new AppError("Email are required", 400);
+    }
+
+    const user = await client.user.findUnique({
+      where: { email },
+    });
+
+    if (!user || !user.password) {
+      throw new AppError("Invalid credentials", 400);
+    }
+
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    await client.user.update({
+      where: { email },
+      data: {
+        resetOtp: otp,
+        isOtpVerified: false,
+        otpExpires: new Date(Date.now() + 5 * 60 * 1000), // 5 mins
+      },
+    });
+
+    //send the mail by nodemailer (Work properly in my side)
+    try {
+      await sendOtpMail({ to: email, otp });
+
+      return {
+        message: "OTP sent successfully",
+      };
+
+    } catch (error) {
+      console.error("OTP process failed:", error);
+
+      // rollback OTP if mail fails
+      await client.user.update({
+        where: { email },
+        data: {
+          resetOtp: null,
+          otpExpires: null,
+        },
+      });
+
+      throw new AppError(
+        "Unable to send OTP. Please try again later.",
+        500
+      );
+    }
+
+
+  }
+  //verify the Otp (Work properly in my side)
+  static async verifyOtp(data: any) {
+    const { email, otp } = data;
+    if (!email || !otp) {
+      throw new AppError("Email and Otp are required", 400);
+    }
+    const user = await client.user.findUnique({
+      where: { email },
+    });
+
+    if (!user || !user.resetOtp) {
+      throw new AppError("Invalid credentials", 400);
+    }
+
+    if (user.resetOtp !== otp.toString()) {
+      throw new AppError("Invalid OTP", 400);
+    }
+
+    if (!user.otpExpires || user.otpExpires < new Date()) {
+      throw new AppError("OTP expired", 400);
+    }
+
+    // OTP verified, now clear it
+    await client.user.update({
+      where: { id: user.id },
+      data: {
+        resetOtp: null,
+        isOtpVerified: true,
+        otpExpires: null,
+      },
+    });
+
+    return {
+      success: "True",
+    };
+
+  }
+
+  //Reset The PassWord
+  static async resetPassword(data: any) {
+    const { email, newPassword } = data;
+    if (!email || !newPassword) {
+      throw new AppError("Email and newPassword are required", 400);
+    }
+
+    const user = await client.user.findUnique({
+      where: { email },
+    });
+
+    if (!user) {
+      throw new AppError("Invalid credentials", 400);
+    }
+
+    if (!user.isOtpVerified) {
+      throw new AppError("Please verify your OTP before logging in.", 400);
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    await client.user.update({
+      where: { id: user.id },
+      data: {
+        password:hashedPassword
+      },
+    });
+
+    return {
+      success: "True",
+    };
+
+  }
+
 }

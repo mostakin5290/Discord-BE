@@ -31,6 +31,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.text());
 
 import passport from "./config/passport.js";
+import livekitRoutes from "./routes/livekit.route.js";
 app.use(passport.initialize());
 
 // Main routes
@@ -41,6 +42,7 @@ app.use("/api/v1/messages", messageRoutes);
 app.use("/api/v1/friends", friendRoutes);
 app.use("/api/v1/dm", dmRoutes);
 app.use("/api/v1/dm-actions", dmActionsRoutes);
+app.use("/api/v1/livekit", livekitRoutes);
 
 app.get("/health", (req, res) => {
   res.status(200).json({

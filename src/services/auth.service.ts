@@ -22,7 +22,10 @@ export class AuthService {
     });
 
     if (existingUser) {
-      throw new AppError("User with this email or username already exists", 400);
+      throw new AppError(
+        "User with this email or username already exists",
+        400,
+      );
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -86,6 +89,7 @@ export class AuthService {
         username: user.username,
         email: user.email,
         imageUrl: user.imageUrl,
+        bannerUrl: user.bannerUrl,
         bio: user.bio,
       },
       token,
@@ -137,6 +141,7 @@ export class AuthService {
     return user;
   }
 
+<<<<<<< HEAD
 
   //forgot password 
   //send Otp 
@@ -146,6 +151,14 @@ export class AuthService {
 
     if (!email) {
       throw new AppError("Email are required", 400);
+=======
+  // Forgot password - Send OTP
+  static async sendOtp(data: any) {
+    const { email } = data;
+
+    if (!email) {
+      throw new AppError("Email is required", 400);
+>>>>>>> 5db034c5f638668771a784247c7b73d93fcfb6a8
     }
 
     const user = await client.user.findUnique({
@@ -156,7 +169,10 @@ export class AuthService {
       throw new AppError("Invalid credentials", 400);
     }
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 5db034c5f638668771a784247c7b73d93fcfb6a8
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
     await client.user.update({
@@ -168,18 +184,29 @@ export class AuthService {
       },
     });
 
+<<<<<<< HEAD
     //send the mail by nodemailer (Work properly in my side)
+=======
+    // Send the mail by nodemailer
+>>>>>>> 5db034c5f638668771a784247c7b73d93fcfb6a8
     try {
       await sendOtpMail({ to: email, otp });
 
       return {
         message: "OTP sent successfully",
       };
+<<<<<<< HEAD
 
     } catch (error) {
       console.error("OTP process failed:", error);
 
       // rollback OTP if mail fails
+=======
+    } catch (error) {
+      console.error("OTP process failed:", error);
+
+      // Rollback OTP if mail fails
+>>>>>>> 5db034c5f638668771a784247c7b73d93fcfb6a8
       await client.user.update({
         where: { email },
         data: {
@@ -188,6 +215,7 @@ export class AuthService {
         },
       });
 
+<<<<<<< HEAD
       throw new AppError(
         "Unable to send OTP. Please try again later.",
         500
@@ -202,6 +230,19 @@ export class AuthService {
     if (!email || !otp) {
       throw new AppError("Email and Otp are required", 400);
     }
+=======
+      throw new AppError("Unable to send OTP. Please try again later.", 500);
+    }
+  }
+
+  // Verify the OTP
+  static async verifyOtp(data: any) {
+    const { email, otp } = data;
+    if (!email || !otp) {
+      throw new AppError("Email and OTP are required", 400);
+    }
+
+>>>>>>> 5db034c5f638668771a784247c7b73d93fcfb6a8
     const user = await client.user.findUnique({
       where: { email },
     });
@@ -231,10 +272,16 @@ export class AuthService {
     return {
       success: "True",
     };
+<<<<<<< HEAD
 
   }
 
   //Reset The PassWord
+=======
+  }
+
+  // Reset The Password
+>>>>>>> 5db034c5f638668771a784247c7b73d93fcfb6a8
   static async resetPassword(data: any) {
     const { email, newPassword } = data;
     if (!email || !newPassword) {
@@ -250,7 +297,14 @@ export class AuthService {
     }
 
     if (!user.isOtpVerified) {
+<<<<<<< HEAD
       throw new AppError("Please verify your OTP before logging in.", 400);
+=======
+      throw new AppError(
+        "Please verify your OTP before resetting password.",
+        400,
+      );
+>>>>>>> 5db034c5f638668771a784247c7b73d93fcfb6a8
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
@@ -258,14 +312,150 @@ export class AuthService {
     await client.user.update({
       where: { id: user.id },
       data: {
+<<<<<<< HEAD
         password:hashedPassword
+=======
+        password: hashedPassword,
+        isOtpVerified: false, // Reset verification flag
+>>>>>>> 5db034c5f638668771a784247c7b73d93fcfb6a8
       },
     });
 
     return {
       success: "True",
     };
+<<<<<<< HEAD
 
   }
 
+=======
+  }
+
+  static async updateProfile(userId: string, data: any) {
+    const { firstName, lastName, username, bio, imageUrl, bannerUrl } = data;
+
+    // Check if username is taken (if being updated)
+    if (username) {
+      const existingUser = await client.user.findFirst({
+        where: {
+          username,
+          id: { not: userId },
+        },
+      });
+
+      if (existingUser) {
+        throw new AppError("Username already taken", 400);
+      }
+    }
+
+    const updatedUser = await client.user.update({
+      where: { id: userId },
+      data: {
+        firstName,
+        lastName,
+        username,
+        bio,
+        imageUrl,
+        bannerUrl,
+      },
+    });
+
+    return updatedUser;
+  }
+
+  static async updatePassword(userId: string, data: any) {
+    const { currentPassword, newPassword } = data;
+
+    if (!currentPassword || !newPassword) {
+      throw new AppError("Current and new passwords are required", 400);
+    }
+
+    const user = await client.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user || !user.password) {
+      throw new AppError("User not found or social login user", 404);
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+
+    if (!isMatch) {
+      throw new AppError("Invalid current password", 400);
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    await client.user.update({
+      where: { id: userId },
+      data: {
+        password: hashedPassword,
+      },
+    });
+
+    return { message: "Password updated successfully" };
+  }
+
+  static async deleteAccount(userId: string, password?: string) {
+    const user = await client.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new AppError("User not found", 404);
+    }
+
+    // If user has password (not social login), verify it
+    if (user.password) {
+      if (!password) {
+        throw new AppError("Password is required", 400);
+      }
+
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) {
+        throw new AppError("Invalid password", 400);
+      }
+    }
+
+    // Delete user (cascade will handle related data)
+    await client.user.delete({
+      where: { id: userId },
+    });
+
+    return { message: "Account deleted successfully" };
+  }
+
+  static async disableAccount(userId: string, password?: string) {
+    const user = await client.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new AppError("User not found", 404);
+    }
+
+    // If user has password (not social login), verify it
+    if (user.password) {
+      if (!password) {
+        throw new AppError("Password is required", 400);
+      }
+
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) {
+        throw new AppError("Invalid password", 400);
+      }
+    }
+
+    // For now, we'll use a soft delete by updating email with a disabled flag
+    // You might want to add an isDisabled field to your schema
+    await client.user.update({
+      where: { id: userId },
+      data: {
+        email: `disabled_${user.id}@disabled.com`,
+      },
+    });
+
+    return { message: "Account disabled successfully" };
+  }
+>>>>>>> 5db034c5f638668771a784247c7b73d93fcfb6a8
 }

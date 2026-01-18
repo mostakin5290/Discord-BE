@@ -8,6 +8,9 @@ import {
   removeFriend,
   cancelFriendRequest,
   getSentRequests,
+  getUserProfile,
+  getMutualFriends,
+  getMutualServers,
 } from "../controllers/friend.controller.js";
 import { authenticate } from "../middleware/user.middleware.js";
 
@@ -27,5 +30,10 @@ router.delete("/request/:requestId", cancelFriendRequest);
 // Friend Routes
 router.get("/", getFriends);
 router.delete("/:friendId", removeFriend);
+
+// User Profile Routes
+router.get("/user/:userId/profile", getUserProfile);
+router.get("/user/:userId/mutual-friends", getMutualFriends);
+router.get("/user/:userId/mutual-servers", getMutualServers);
 
 export default router;

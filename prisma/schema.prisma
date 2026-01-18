@@ -6,6 +6,173 @@ datasource db {
   provider = "postgresql"
 }
 
+model User {
+  id                     String          @id @default(uuid())
+  email                  String          @unique
+  firstName              String
+  lastName               String
+  username               String          @unique
+  imageUrl               String?
+  bannerUrl              String?
+  bio                    String?         @db.VarChar(500)
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
+  accessToken            String?
+  password               String?
+  provider               String?
+  refreshToken           String?
+  socialId               String?
+  isOtpVerified          Boolean         @default(false)
+  otpExpires             DateTime?
+  resetOtp               String?
+  conversations          Conversation[]  @relation("ConversationParticipant")
+  receivedDirectMessages DirectMessage[] @relation("ReceivedMessages")
+  sentDirectMessages     DirectMessage[] @relation("SentMessages")
+  friendsReceived        Friend[]        @relation("FriendsReceived")
+  friendsInitiated       Friend[]        @relation("FriendsInitiated")
+  receivedFriendRequests FriendRequest[] @relation("ReceivedRequests")
+  sentFriendRequests     FriendRequest[] @relation("SentRequests")
+  members                Member[]
+  messages               Message[]
+  servers                Server[]
+
+  streamChannelId String?
+  streamChannel   Channel? @relation(fields: [streamChannelId], references: [id], onDelete: Cascade)
+}
+
+model Server {
+  id         String    @id @default(cuid())
+  name       String
+  imageUrl   String
+  bio        String?   @db.VarChar(500)
+  inviteCode String?   @unique
+  userId     String
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  channels   Channel[]
+  members    Member[]
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Member {
+  id        String     @id @default(cuid())
+  role      MemberRole @default(GUEST)
+  userId    String
+  serverId  String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  server    Server     @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, serverId])
+  @@index([userId])
+  @@index([serverId])
+}
+
+model Channel {
+  id        String      @id @default(cuid())
+  name      String
+  creatorId String?
+  type      ChannelType @default(TEXT)
+  serverId  String
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  server    Server      @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  messages  Message[]
+  users     User[]
+
+  @@index([serverId])
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  content   String
+  fileUrl   String?
+  channelId String
+  userId    String
+  deleted   Boolean  @default(false)
+  reactions Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  channel   Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([channelId])
+  @@index([userId])
+}
+
+model FriendRequest {
+  id         String              @id @default(cuid())
+  status     FriendRequestStatus @default(PENDING)
+  senderId   String
+  receiverId String
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+  receiver   User                @relation("ReceivedRequests", fields: [receiverId], references: [id], onDelete: Cascade)
+  sender     User                @relation("SentRequests", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@unique([senderId, receiverId])
+  @@index([senderId])
+  @@index([receiverId])
+}
+
+model Friend {
+  id        String   @id @default(cuid())
+  userId    String
+  friendId  String
+  createdAt DateTime @default(now())
+  friend    User     @relation("FriendsReceived", fields: [friendId], references: [id], onDelete: Cascade)
+  user      User     @relation("FriendsInitiated", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, friendId])
+  @@index([userId])
+  @@index([friendId])
+}
+
+model Conversation {
+  id             String          @id @default(cuid())
+  participantId  String
+  lastMessageAt  DateTime?
+  lastMessageId  String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  participant    User            @relation("ConversationParticipant", fields: [participantId], references: [id], onDelete: Cascade)
+  directMessages DirectMessage[]
+
+  @@index([participantId])
+}
+
+model DirectMessage {
+  id             String          @id @default(cuid())
+  content        String
+  fileUrl        String?
+  senderId       String
+  receiverId     String
+  conversationId String
+  read           Boolean         @default(false)
+  deleted        Boolean         @default(false)
+  pinned         Boolean         @default(false)
+  pinnedAt       DateTime?
+  pinnedBy       String?
+  deletedBy      String[]        @default([])
+  replyToId      String?
+  reactions      Json?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  conversation   Conversation    @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  receiver       User            @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+  replyTo        DirectMessage?  @relation("MessageReplies", fields: [replyToId], references: [id])
+  replies        DirectMessage[] @relation("MessageReplies")
+  sender         User            @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([conversationId])
+  @@index([createdAt])
+}
+
 enum MemberRole {
   ADMIN
   MODERATOR
@@ -23,6 +190,7 @@ enum FriendRequestStatus {
   ACCEPTED
   REJECTED
 }
+<<<<<<< HEAD
 
 model User {
   id           String    @id @default(uuid())
@@ -209,3 +377,5 @@ model DirectMessage {
   @@index([conversationId])
   @@index([createdAt])
 }
+=======
+>>>>>>> 5db034c5f638668771a784247c7b73d93fcfb6a8

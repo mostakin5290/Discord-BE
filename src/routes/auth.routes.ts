@@ -8,6 +8,13 @@ import {
   sendOtp,
   verifyOtp,
   resetPassword,
+<<<<<<< HEAD
+=======
+  updateProfile,
+  updatePassword,
+  deleteAccount,
+  disableAccount,
+>>>>>>> 5db034c5f638668771a784247c7b73d93fcfb6a8
 } from "../controllers/auth.controller.js";
 import multer from "multer";
 import { protect } from "../middleware/user.middleware.js";
@@ -18,18 +25,32 @@ const upload = multer();
 router.post("/signup", upload.none(), signup);
 router.post("/login", upload.none(), login);
 
+<<<<<<< HEAD
 //forgot /reset password
 router.post("/send-otp",sendOtp);
 router.post("/verify-otp",verifyOtp);
 router.post("/reset-password",resetPassword);
+=======
+// Forgot / Reset password
+router.post("/send-otp", sendOtp);
+router.post("/verify-otp", verifyOtp);
+router.post("/reset-password", resetPassword);
+>>>>>>> 5db034c5f638668771a784247c7b73d93fcfb6a8
 
 // Get current authenticated user
 router.get("/me", protect, getMe);
+router.put("/profile", protect, updateProfile);
+router.put("/password", protect, updatePassword);
+router.delete("/account", protect, deleteAccount);
+router.post("/account/disable", protect, disableAccount);
 
 // Google Auth
 router.get(
   "/google",
-  passport.authenticate("google", { scope: ["profile", "email"] })
+  passport.authenticate("google", {
+    scope: ["profile", "email"],
+    prompt: "select_account",
+  }),
 );
 router.get(
   "/google/callback",
@@ -37,13 +58,13 @@ router.get(
     session: false,
     failureRedirect: "/login",
   }),
-  socialCallback
+  socialCallback,
 );
 
 // GitHub Auth
 router.get(
   "/github",
-  passport.authenticate("github", { scope: ["user:email"] })
+  passport.authenticate("github", { scope: ["user:email"] }),
 );
 router.get(
   "/github/callback",
@@ -51,13 +72,13 @@ router.get(
     session: false,
     failureRedirect: "/login",
   }),
-  socialCallback
+  socialCallback,
 );
 
 // Facebook Auth
 router.get(
   "/facebook",
-  passport.authenticate("facebook", { scope: ["email"] })
+  passport.authenticate("facebook", { scope: ["email"] }),
 );
 router.get(
   "/facebook/callback",
@@ -65,7 +86,7 @@ router.get(
     session: false,
     failureRedirect: "/login",
   }),
-  socialCallback
+  socialCallback,
 );
 
 export default router;

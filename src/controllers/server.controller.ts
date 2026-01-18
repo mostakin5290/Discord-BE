@@ -37,7 +37,7 @@ export const createServer = catchAsync(
           create: {
             name: "general",
             type: "TEXT",
-            userId,
+            creatorId: userId,
           },
         },
       },
@@ -47,24 +47,23 @@ export const createServer = catchAsync(
       },
     });
 
-    if (!server.bio) {
-      throw new AppError("Server bio is required", 400);
-    }
+
 
     // TODO: This part needs to be done in a background job
+    if (server.bio) {
+      const serverEmbeddings = await createEmbedding(server.bio);
 
-    const serverEmbeddings = await createEmbedding(server?.bio);
-
-    // Create server - vector in Pinecone
-    const upsertVectorResponse = await pineconeIndex.upsert([
-      {
-        id: server?.id,
-        values: serverEmbeddings,
-        metadata: {
-          serverBio: server?.bio,
-        }
-      },
-    ]);
+      // Create server - vector in Pinecone
+      await pineconeIndex.upsert([
+        {
+          id: server.id,
+          values: serverEmbeddings,
+          metadata: {
+            serverBio: server.bio,
+          }
+        },
+      ]);
+    }
 
     res.status(201).json({
       success: true,
@@ -244,7 +243,7 @@ export const createChannel = catchAsync(
       data: {
         name,
         type: type || "TEXT",
-        userId,
+        creatorId: userId,
         serverId: serverId,
       },
     });
@@ -310,12 +309,43 @@ export const leaveServer = catchAsync(
       }
     });
 
-    if (!searchMember || !searchMember?.id || searchMember.role === "ADMIN") {
+    if (!searchMember || !searchMember?.id) {
       res.status(404).json({
         success: false,
-        error: "Member not exist or Member is Admin"
+        error: "Member not found"
       })
+      return;
     };
+
+    if (searchMember.role === "ADMIN") {
+      // Check if there are other members
+      const memberCount = await client.member.count({
+        where: {
+          serverId: serverId ?? "",
+        }
+      });
+
+      if (memberCount > 1) {
+        res.status(400).json({
+          success: false,
+          error: "Admins cannot leave server. You must transfer ownership or delete the server."
+        })
+        return;
+      }
+
+      // If only member (the admin), delete the server
+      await client.server.delete({
+        where: {
+          id: serverId ?? "",
+        }
+      });
+
+      res.status(200).json({
+        success: true,
+        message: "Server deleted successfully"
+      })
+      return;
+    }
 
     // Remove from the Members of the server
     const removeMember = await client.member.delete({
@@ -330,6 +360,7 @@ export const leaveServer = catchAsync(
         success: false,
         error: "Failed to remove member"
       })
+      return;
     };
 
     res.status(200).json({

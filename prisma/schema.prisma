@@ -25,7 +25,6 @@ model User {
   isOtpVerified          Boolean         @default(false)
   otpExpires             DateTime?
   resetOtp               String?
-  channels               Channel[]
   conversations          Conversation[]  @relation("ConversationParticipant")
   receivedDirectMessages DirectMessage[] @relation("ReceivedMessages")
   sentDirectMessages     DirectMessage[] @relation("SentMessages")
@@ -36,6 +35,9 @@ model User {
   members                Member[]
   messages               Message[]
   servers                Server[]
+
+  streamChannelId String?
+  streamChannel   Channel? @relation(fields: [streamChannelId], references: [id], onDelete: Cascade)
 }
 
 model Server {
@@ -72,16 +74,15 @@ model Member {
 model Channel {
   id        String      @id @default(cuid())
   name      String
+  creatorId String?
   type      ChannelType @default(TEXT)
-  userId    String
   serverId  String
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
   server    Server      @relation(fields: [serverId], references: [id], onDelete: Cascade)
-  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   messages  Message[]
+  users     User[]
 
-  @@index([userId])
   @@index([serverId])
 }
 

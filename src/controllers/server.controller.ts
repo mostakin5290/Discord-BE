@@ -37,7 +37,7 @@ export const createServer = catchAsync(
           create: {
             name: "general",
             type: "TEXT",
-            userId,
+            creatorId: userId,
           },
         },
       },
@@ -51,18 +51,18 @@ export const createServer = catchAsync(
 
     // TODO: This part needs to be done in a background job
     if (server.bio) {
-        const serverEmbeddings = await createEmbedding(server.bio);
+      const serverEmbeddings = await createEmbedding(server.bio);
 
-        // Create server - vector in Pinecone
-        await pineconeIndex.upsert([
+      // Create server - vector in Pinecone
+      await pineconeIndex.upsert([
         {
-            id: server.id,
-            values: serverEmbeddings,
-            metadata: {
+          id: server.id,
+          values: serverEmbeddings,
+          metadata: {
             serverBio: server.bio,
-            }
+          }
         },
-        ]);
+      ]);
     }
 
     res.status(201).json({
@@ -243,7 +243,7 @@ export const createChannel = catchAsync(
       data: {
         name,
         type: type || "TEXT",
-        userId,
+        creatorId: userId,
         serverId: serverId,
       },
     });
@@ -326,7 +326,7 @@ export const leaveServer = catchAsync(
       });
 
       if (memberCount > 1) {
-         res.status(400).json({
+        res.status(400).json({
           success: false,
           error: "Admins cannot leave server. You must transfer ownership or delete the server."
         })
@@ -340,7 +340,7 @@ export const leaveServer = catchAsync(
         }
       });
 
-       res.status(200).json({
+      res.status(200).json({
         success: true,
         message: "Server deleted successfully"
       })

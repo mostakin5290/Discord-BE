@@ -5,7 +5,8 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "dev": "docker compose up -d && nodemon --watch src --ext ts --exec \"tsc -b && node dist/index.js\"",
+    "dev": "nodemon --watch src --ext ts --exec \"tsc -b && node dist/index.js\"",
+    "dev:docker": "docker compose up -d && nodemon --watch src --ext ts --exec \"tsc -b && node dist/index.js\"",
     "build": "tsc -b",
     "start": "nodemon dist/index.js"
   },

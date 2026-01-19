@@ -32,7 +32,7 @@ export const createToken = async ({ roomName, participantName, participantIdenti
 export const createDirectCallToken = catchAsync(
     async (req: AuthRequest, res: Response) => {
         try {
-            const { roomName, participantName, participantIdentity, friendId } = await req.body;
+            const { roomName, participantName, participantIdentity, friendId, channelType } = await req.body;
             const userId = req.userId;
 
             if (!roomName || !participantName) {
@@ -66,14 +66,30 @@ export const createDirectCallToken = catchAsync(
                 participantIdentity: friendId,
             });
 
-            getIO().to(friendId).emit("incoming_call", {
-                token: friendToken,
-                roomName,
-                fromFriendId: userId,
-                fromFriendName: participantName,
-            });
+            // Check if friend is connected to socket before emitting
+            const io = getIO();
+            const friendRoom = io.sockets.adapter.rooms.get(friendId);
+            const isFriendConnected = friendRoom && friendRoom.size > 0;
 
-            return res.status(200).json({ token, roomName });
+            console.log(`Call: Attempting to call friend ${friendId} (${friend.username})`);
+            console.log(`Call: Friend is ${isFriendConnected ? 'connected' : 'not connected'} to socket`);
+
+            if (isFriendConnected) {
+                io.to(friendId).emit("incoming_call", {
+                    token: friendToken,
+                    roomName,
+                    fromFriendId: userId,
+                    fromFriendName: participantName,
+                    channelType: channelType,
+                });
+                console.log(`Call: Incoming call event emitted to friend ${friendId}`);
+            } else {
+                console.warn(`Call: Friend ${friendId} is not connected to socket. Call notification not sent.`);
+                // You might want to return an error or handle this case differently
+                // For now, we'll still return success but log the warning
+            }
+
+            return res.status(200).json({ token, roomName, channelType });
         }
         catch (error) {
             console.error("Error generating token:", error);

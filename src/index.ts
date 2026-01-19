@@ -20,9 +20,14 @@ const app = express();
 const port = env.PORT;
 const frontend_url = env.FRONTEND_BASE_URL;
 
+// Get allowed origins from environment or default to localhost
+const allowedOrigins = process.env.FRONTEND_BASE_URL 
+  ? [process.env.FRONTEND_BASE_URL, "http://localhost:5173"]
+  : ["http://localhost:5173"];
+
 app.use(
   cors({
-    origin: ["http://localhost:5173"],
+    origin: allowedOrigins,
     credentials: true,
   })
 );

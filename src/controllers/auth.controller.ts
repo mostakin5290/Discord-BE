@@ -19,10 +19,7 @@ export const signup = catchAsync(async (req: Request, res: Response) => {
 
   const result = await AuthService.signup(body);
   // console.log(result);
-  res.status(201).json({
-    message: "User created successfully",
-    ...result,
-  });
+  res.status(201).json(result);
 });
 
 export const login = catchAsync(async (req: Request, res: Response) => {
@@ -75,10 +72,7 @@ export const verifyOtp = catchAsync(async (req: Request, res: Response) => {
 
   const result = await AuthService.verifyOtp(body);
 
-  res.status(200).json({
-    message: "OTP verify successfully",
-    ...result,
-  });
+  res.status(200).json(result);
 });
 
 // Reset Password

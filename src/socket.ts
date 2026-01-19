@@ -6,9 +6,14 @@ import type { Server as HttpServer } from "http";
 let io: Server;
 
 export const initSocket = (httpServer: HttpServer) => {
+  // Get allowed origins from environment or default to localhost
+  const allowedOrigins = process.env.FRONTEND_BASE_URL 
+    ? [process.env.FRONTEND_BASE_URL, "http://localhost:5173", "http://localhost:3000"]
+    : ["http://localhost:5173", "http://localhost:3000"];
+
   io = new Server(httpServer, {
     cors: {
-      origin: ["http://localhost:5173", "http://localhost:3000"],
+      origin: allowedOrigins,
       credentials: true,
     },
   });
@@ -32,11 +37,12 @@ export const initSocket = (httpServer: HttpServer) => {
   });
 
   io.on("connection", (socket) => {
-    // console.log("Client connected:", socket.id, "User:", socket.data.userId);
+    console.log("Socket: Client connected:", socket.id, "User:", socket.data.userId);
 
     // Join a room with their userId so we can emit to them specifically
     if (socket.data.userId) {
       socket.join(socket.data.userId);
+      console.log("Socket: User", socket.data.userId, "joined room:", socket.data.userId);
       // Broadcast that this user is online
       socket.broadcast.emit("user_connected", { userId: socket.data.userId });
     }
@@ -73,7 +79,7 @@ export const initSocket = (httpServer: HttpServer) => {
     });
 
     socket.on("disconnect", () => {
-      // console.log("Client disconnected:", socket.id);
+      console.log("Socket: Client disconnected:", socket.id, "User:", socket.data.userId);
       if (socket.data.userId) {
         socket.broadcast.emit("user_disconnected", { userId: socket.data.userId });
       }

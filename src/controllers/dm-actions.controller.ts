@@ -319,7 +319,7 @@ export const replyToMessage = catchAsync(
     // So we need to find the conversation and the OTHER participant.
     const conversation = await client.conversation.findUnique({
         where: { id: replyToMessage.conversationId },
-        include: { participant: true } // userId, participantId
+        include: { userOne: true, userTwo: true }
     });
 
     if (!conversation) {

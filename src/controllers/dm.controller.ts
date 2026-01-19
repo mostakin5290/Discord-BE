@@ -5,17 +5,23 @@ import { catchAsync } from "../utils/catchAsync.js";
 import { AppError } from "../utils/AppError.js";
 import { getIO } from "../socket.js";
 
+// Trigger restart
+
 // Get or Create Conversation
 const getOrCreateConversation = async (userId: string, friendId: string) => {
+  // Ensure consistent ordering of IDs so we always find the same conversation
+  // regardless of who started it
+  const ids = [userId, friendId].sort();
+  const userOneId = ids[0] as string;
+  const userTwoId = ids[1] as string;
+
   // Check if conversation exists
-  let conversation = await client.conversation.findFirst({
+  let conversation = await client.conversation.findUnique({
     where: {
-      AND: [
-        { participantId: { in: [userId, friendId] } },
-        {
-          OR: [{ participantId: userId }, { participantId: friendId }],
-        },
-      ],
+      userOneId_userTwoId: {
+        userOneId,
+        userTwoId,
+      },
     },
   });
 
@@ -23,7 +29,8 @@ const getOrCreateConversation = async (userId: string, friendId: string) => {
   if (!conversation) {
     conversation = await client.conversation.create({
       data: {
-        participantId: userId,
+        userOneId,
+        userTwoId,
       },
     });
   }
@@ -55,23 +62,43 @@ export const getConversations = catchAsync(
       });
     }
 
-    // Get conversations with friends
-    const conversations = await Promise.all(
-      friendIds.map(async (friendId: string) => {
-        // Get or create conversation
-        const conversation = await getOrCreateConversation(userId, friendId);
-
-        // Get friend details
-        const friend = await client.user.findUnique({
-          where: { id: friendId },
+    // Get conversations where user is participant
+    const conversationsRaw = await client.conversation.findMany({
+      where: {
+        OR: [
+          { userOneId: userId },
+          { userTwoId: userId },
+        ],
+      },
+      include: {
+        userOne: {
           select: {
             id: true,
             username: true,
             firstName: true,
             lastName: true,
             imageUrl: true,
-          },
-        });
+          }
+        },
+        userTwo: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+            imageUrl: true,
+          }
+        },
+      }
+    });
+
+    // Map to frontend format
+    const conversations = await Promise.all(
+      conversationsRaw.map(async (conversation: any) => {
+        // Determine which user is the "other" participant
+        const isUserOne = conversation.userOneId === userId;
+        const participant = isUserOne ? conversation.userTwo : conversation.userOne;
+        const participantId = participant.id;
 
         // Get last message
         const lastMessage = await client.directMessage.findFirst({
@@ -102,9 +129,9 @@ export const getConversations = catchAsync(
 
         return {
           id: conversation.id,
-          conversationId: conversation.id, // Keep for backward compatibility if needed
-          participantId: friendId,
-          participant: friend,
+          conversationId: conversation.id,
+          participantId: participantId,
+          participant: participant,
           lastMessage,
           unreadCount,
           updatedAt: conversation.updatedAt,

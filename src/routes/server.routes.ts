@@ -8,6 +8,7 @@ import {
   getServerChannels,
   leaveServer,
   inviteCodeJoin,
+  updateServer,
 } from "../controllers/server.controller.js";
 import { protect } from "../middleware/user.middleware.js";
 
@@ -24,5 +25,6 @@ serverRoutes.post("/:serverId/channels", createChannel);
 serverRoutes.get("/:serverId/channels", getServerChannels);
 serverRoutes.post("/leave/:serverId", leaveServer);
 serverRoutes.post("/:serverId/invite/:invitecode", inviteCodeJoin);
+serverRoutes.put("/update/:serverId", updateServer);
 
 export default serverRoutes;

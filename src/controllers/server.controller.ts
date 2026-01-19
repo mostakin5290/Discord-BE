@@ -423,3 +423,49 @@ export const inviteCodeJoin = catchAsync(
     })
   }
 )
+
+export const updateServer = catchAsync(
+  async (req: AuthRequest, res: Response) => {
+    const { serverId } = req.params;
+    const { name, bannerUrl, imageUrl, bio } = req.body;
+    const userId = req.userId!;
+
+    if (!serverId) {
+      throw new AppError("Server ID is required", 400);
+    }
+
+    const getServer = await client.server.findUnique({
+      where: { id: serverId, userId },
+    });
+
+    if (!getServer) {
+      throw new AppError("Server not found", 404);
+    }
+
+    const bioDataChanged = getServer?.bio !== bio;
+
+    const updateServer = await client.server.update({
+      where: { id: serverId, userId },
+      data: { name, bannerUrl, imageUrl, bio },
+    });
+
+    if (bioDataChanged) {
+      const serverEmbeddings = await createEmbedding(bio as string);
+      await pineconeIndex.upsert([
+        {
+          id: serverId,
+          values: serverEmbeddings,
+          metadata: {
+            serverBio: bio as string,
+          }
+        },
+      ]);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Server updated successfully",
+      server: updateServer,
+    });
+  }
+);

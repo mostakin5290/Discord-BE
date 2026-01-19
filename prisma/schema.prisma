@@ -43,7 +43,8 @@ model User {
 model Server {
   id         String    @id @default(cuid())
   name       String
-  imageUrl   String
+  bannerUrl  String?
+  imageUrl   String?
   bio        String?   @db.VarChar(500)
   inviteCode String?   @unique
   userId     String

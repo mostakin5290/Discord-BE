@@ -4,6 +4,8 @@ import { catchAsync } from "../utils/catchAsync.js";
 import { env } from "../config/env.js";
 import jwt from "jsonwebtoken";
 import { AppError } from "../utils/AppError.js";
+import cloudinary from "../config/cloudinary.js";
+import { uploadToCloudinary } from "../utils/cloudinary.js";
 
 export const signup = catchAsync(async (req: Request, res: Response) => {
   let body = req.body;
@@ -132,6 +134,8 @@ export const getMe = catchAsync(async (req: Request, res: Response) => {
       imageUrl: user.imageUrl,
       bannerUrl: user.bannerUrl,
       bio: user.bio,
+      provider: user.provider,
+      hasPassword: !!user.password,
     },
   });
 });
@@ -142,11 +146,41 @@ export const updateProfile = catchAsync(async (req: Request, res: Response) => {
     throw new AppError("User not found", 404);
   }
 
-  const updatedUser = await AuthService.updateProfile(user.id, req.body);
+  const { firstName, lastName, username, bio } = req.body;
+  // Handle file uploads (Avatar & Banner)
+  const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+
+  console.log("FILES RECEIVED:", files ? Object.keys(files) : "No files");
+
+  let imageUrl = user.imageUrl;
+  let bannerUrl = user.bannerUrl;
+
+  if (files?.avatar?.[0]) {
+    console.log("Uploading avatar...");
+    imageUrl = await uploadToCloudinary(files.avatar[0].buffer);
+    console.log("Avatar uploaded:", imageUrl);
+  }
+
+  if (files?.banner?.[0]) {
+    console.log("Uploading banner...", files.banner[0].originalname);
+    bannerUrl = await uploadToCloudinary(files.banner[0].buffer);
+    console.log("Banner uploaded:", bannerUrl);
+  }
+
+  console.log("Updating profile with:", { firstName, lastName, username, bio, imageUrl, bannerUrl });
+
+  const updatedUser = await AuthService.updateProfile(user.id, {
+    firstName,
+    lastName,
+    username,
+    bio,
+    imageUrl,
+    bannerUrl,
+  });
 
   res.status(200).json({
     message: "Profile updated successfully",
-    user: {
+      user: {
       id: updatedUser.id,
       firstName: updatedUser.firstName,
       lastName: updatedUser.lastName,
@@ -155,6 +189,8 @@ export const updateProfile = catchAsync(async (req: Request, res: Response) => {
       imageUrl: updatedUser.imageUrl,
       bannerUrl: updatedUser.bannerUrl,
       bio: updatedUser.bio,
+      provider: updatedUser.provider,
+      hasPassword: !!updatedUser.password,
     },
   });
 });

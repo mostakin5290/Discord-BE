@@ -42,7 +42,10 @@ export const protect = async (
         firstName: true,
         lastName: true,
         imageUrl: true,
+        bannerUrl: true,
         bio: true,
+        provider: true,
+        password: true,
       },
     });
 

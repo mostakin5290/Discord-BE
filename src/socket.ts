@@ -41,10 +41,41 @@ export const initSocket = (httpServer: HttpServer) => {
       socket.broadcast.emit("user_connected", { userId: socket.data.userId });
     }
 
+    socket.on("join_channel", (channelId: string) => {
+      socket.join(channelId);
+      // console.log(`User ${socket.data.userId} joined channel ${channelId}`);
+    });
+
+    socket.on("leave_channel", (channelId: string) => {
+      socket.leave(channelId);
+      // console.log(`User ${socket.data.userId} left channel ${channelId}`);
+    });
+
+    socket.on("send_message", (message: any) => {
+      // Message persistence should happen via API call, then this event broadcasts it
+      // OR this event triggers persistence + broadcast.
+      // For now, assuming API call persists and returns message, and we just broadcast here.
+      // But usually, frontend calls API -> API returns msg -> Frontend emits 'new_message' -> Socket broadcasts.
+      // BETTER: API persistence triggers socket broadcast from controller.
+      
+      // However, for typical chat apps, we can just broadcast to room:
+      if (message.channelId) {
+        socket.to(message.channelId).emit("receive_message", message);
+      }
+    });
+
+    socket.on("typing", (data: { channelId: string; isTyping: boolean }) => {
+      socket.to(data.channelId).emit("user_typing", {
+        userId: socket.data.userId,
+        isTyping: data.isTyping,
+        channelId: data.channelId,
+      });
+    });
+
     socket.on("disconnect", () => {
       // console.log("Client disconnected:", socket.id);
       if (socket.data.userId) {
-           socket.broadcast.emit("user_disconnected", { userId: socket.data.userId });
+        socket.broadcast.emit("user_disconnected", { userId: socket.data.userId });
       }
     });
   });

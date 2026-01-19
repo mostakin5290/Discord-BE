@@ -67,7 +67,18 @@ export class AuthService {
       where: { email },
     });
 
-    if (!user || !user.password) {
+    if (!user) {
+      throw new AppError("Invalid credentials", 400);
+    }
+
+    if (user.isDeactivated) {
+      await client.user.update({
+        where: { id: user.id },
+        data: { isDeactivated: false },
+      });
+    }
+
+    if (!user.password) {
       throw new AppError("Invalid credentials", 400);
     }
 
@@ -301,26 +312,35 @@ export class AuthService {
   static async updatePassword(userId: string, data: any) {
     const { currentPassword, newPassword } = data;
 
-    if (!currentPassword || !newPassword) {
-      throw new AppError("Current and new passwords are required", 400);
+    if (!newPassword) {
+      throw new AppError("New password is required", 400);
     }
 
     const user = await client.user.findUnique({
       where: { id: userId },
     });
 
-    if (!user || !user.password) {
-      throw new AppError("User not found or social login user", 404);
+    if (!user) {
+      throw new AppError("User not found", 404);
     }
 
-    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    // If user has password (not social login), verify it
+    if (user.password) {
+      if (!currentPassword) {
+        throw new AppError("Current password is required", 400);
+      }
 
-    if (!isMatch) {
-      throw new AppError("Invalid current password", 400);
+      const isMatch = await bcrypt.compare(currentPassword, user.password);
+      if (!isMatch) {
+        throw new AppError("Invalid current password", 400);
+      }
     }
 
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    // Hash new password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
 
+    // Update password
     await client.user.update({
       where: { id: userId },
       data: {
@@ -381,12 +401,11 @@ export class AuthService {
       }
     }
 
-    // For now, we'll use a soft delete by updating email with a disabled flag
-    // You might want to add an isDisabled field to your schema
+    // Set isDeactivated to true
     await client.user.update({
       where: { id: userId },
       data: {
-        email: `disabled_${user.id}@disabled.com`,
+        isDeactivated: true,
       },
     });
 

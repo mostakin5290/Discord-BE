@@ -29,7 +29,15 @@ router.post("/reset-password", resetPassword);
 
 // Get current authenticated user
 router.get("/me", protect, getMe);
-router.put("/profile", protect, updateProfile);
+router.put(
+  "/profile",
+  protect,
+  upload.fields([
+    { name: "avatar", maxCount: 1 },
+    { name: "banner", maxCount: 1 },
+  ]),
+  updateProfile,
+);
 router.put("/password", protect, updatePassword);
 router.delete("/account", protect, deleteAccount);
 router.post("/account/disable", protect, disableAccount);

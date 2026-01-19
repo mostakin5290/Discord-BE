@@ -25,6 +25,7 @@ model User {
   isOtpVerified          Boolean         @default(false)
   otpExpires             DateTime?
   resetOtp               String?
+  isDeactivated          Boolean         @default(false)
   conversations          Conversation[]  @relation("ConversationParticipant")
   receivedDirectMessages DirectMessage[] @relation("ReceivedMessages")
   sentDirectMessages     DirectMessage[] @relation("SentMessages")

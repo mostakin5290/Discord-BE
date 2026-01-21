@@ -5,7 +5,6 @@ import { catchAsync } from "../utils/catchAsync.js";
 import { AppError } from "../utils/AppError.js";
 import { getIO } from "../socket.js";
 
-// Pin Message
 export const pinMessage = catchAsync(
   async (req: AuthRequest, res: Response) => {
     const { messageId } = req.params;
@@ -27,7 +26,6 @@ export const pinMessage = catchAsync(
       throw new AppError("Message not found", 404);
     }
 
-    // Only sender or receiver can pin
     if (message.senderId !== userId && message.receiverId !== userId) {
       throw new AppError("Not authorized to pin this message", 403);
     }
@@ -55,8 +53,9 @@ export const pinMessage = catchAsync(
       },
     });
 
-    // Emit socket event
-    const eventName = updatedMessage.pinned ? "message_pinned" : "message_unpinned";
+    const eventName = updatedMessage.pinned
+      ? "message_pinned"
+      : "message_unpinned";
     getIO().to(message.senderId).emit(eventName, updatedMessage);
     getIO().to(message.receiverId).emit(eventName, updatedMessage);
 
@@ -65,10 +64,9 @@ export const pinMessage = catchAsync(
       message: updatedMessage.pinned ? "Message pinned" : "Message unpinned",
       data: updatedMessage,
     });
-  }
+  },
 );
 
-// Delete Message
 export const deleteMessage = catchAsync(
   async (req: AuthRequest, res: Response) => {
     const { messageId } = req.params;
@@ -119,8 +117,12 @@ export const deleteMessage = catchAsync(
       });
 
       // Socket event for everyone
-      getIO().to(message.senderId).emit("message_deleted", { messageId, deleteType: "forEveryone" });
-      getIO().to(message.receiverId).emit("message_deleted", { messageId, deleteType: "forEveryone" });
+      getIO()
+        .to(message.senderId)
+        .emit("message_deleted", { messageId, deleteType: "forEveryone" });
+      getIO()
+        .to(message.receiverId)
+        .emit("message_deleted", { messageId, deleteType: "forEveryone" });
     } else {
       // Delete for me only - use deletedBy array
       const currentDeletedBy = message.deletedBy || [];
@@ -143,15 +145,17 @@ export const deleteMessage = catchAsync(
       });
 
       // Socket event only for this user
-      getIO().to(userId).emit("message_deleted", { messageId, deleteType: "forMe" });
-   }
+      getIO()
+        .to(userId)
+        .emit("message_deleted", { messageId, deleteType: "forMe" });
+    }
 
     res.status(200).json({
       success: true,
       message: "Message deleted",
       data: updatedMessage,
     });
-  }
+  },
 );
 
 // Add Reaction
@@ -183,7 +187,7 @@ export const addReaction = catchAsync(
 
     // Get existing reactions
     const reactions = (message.reactions as any) || {};
-    
+
     // Initialize emoji array if it doesn't exist
     if (!reactions[emoji as string]) {
       reactions[emoji as string] = [];
@@ -209,15 +213,19 @@ export const addReaction = catchAsync(
     });
 
     // Emit socket event
-    getIO().to(message.senderId).emit("reaction_added", { messageId, emoji, userId, reactions });
-    getIO().to(message.receiverId).emit("reaction_added", { messageId, emoji, userId, reactions });
+    getIO()
+      .to(message.senderId)
+      .emit("reaction_added", { messageId, emoji, userId, reactions });
+    getIO()
+      .to(message.receiverId)
+      .emit("reaction_added", { messageId, emoji, userId, reactions });
 
     res.status(200).json({
       success: true,
       message: "Reaction added",
       data: updatedMessage,
     });
-  }
+  },
 );
 
 // Remove Reaction
@@ -246,9 +254,14 @@ export const removeReaction = catchAsync(
     const reactions = (message.reactions as any) || {};
 
     // Remove user from emoji array
-    if (reactions[emoji as string] && Array.isArray(reactions[emoji as string])) {
-      reactions[emoji as string] = reactions[emoji as string].filter((id: string) => id !== userId);
-      
+    if (
+      reactions[emoji as string] &&
+      Array.isArray(reactions[emoji as string])
+    ) {
+      reactions[emoji as string] = reactions[emoji as string].filter(
+        (id: string) => id !== userId,
+      );
+
       // Remove emoji key if no users left
       if (reactions[emoji as string].length === 0) {
         delete reactions[emoji as string];
@@ -270,15 +283,19 @@ export const removeReaction = catchAsync(
     });
 
     // Emit socket event
-    getIO().to(message.senderId).emit("reaction_removed", { messageId, emoji, userId, reactions });
-    getIO().to(message.receiverId).emit("reaction_removed", { messageId, emoji, userId, reactions });
+    getIO()
+      .to(message.senderId)
+      .emit("reaction_removed", { messageId, emoji, userId, reactions });
+    getIO()
+      .to(message.receiverId)
+      .emit("reaction_removed", { messageId, emoji, userId, reactions });
 
     res.status(200).json({
       success: true,
       message: "Reaction removed",
       data: updatedMessage,
     });
-  }
+  },
 );
 // Reply to Message
 export const replyToMessage = catchAsync(
@@ -310,27 +327,27 @@ export const replyToMessage = catchAsync(
     // Determine receiver (the person who sent the original message, unless it was me, then the other participant)
     // Actually, in a DM, a reply is just a new message in the same conversation, but with a replyToId.
     // The receiver logic is the same as sending a normal message.
-    
+
     // We need to know who the 'friend' is.
     // If I am the sender of the original message, I am replying to myself?
     // No, usually I am replying to the OTHER person in the conversation.
     // If I reply to my own message, the receiver is still the other person.
-    
+
     // So we need to find the conversation and the OTHER participant.
     const conversation = await client.conversation.findUnique({
-        where: { id: replyToMessage.conversationId },
-        include: { userOne: true, userTwo: true }
+      where: { id: replyToMessage.conversationId },
+      include: { userOne: true, userTwo: true },
     });
 
     if (!conversation) {
-        throw new AppError("Conversation not found", 404);
+      throw new AppError("Conversation not found", 404);
     }
 
     // Identify the receiver.
     // Conversation has `userId` (creator) and `participantId` (other).
     // If req.userId === conversation.userId, receiver is participantId.
     // If req.userId === conversation.participantId, receiver is userId.
-    
+
     // BUT, `getOrCreateConversation` logic in dm.controller.ts sets `participantId` as the OTHER person relative to the creator.
     // Wait, the schema says:
     // userId (String) - NOT in conversation model directly?
@@ -358,17 +375,17 @@ export const replyToMessage = catchAsync(
     // If I create a conversation with Bob, `participantId` = Bob.
     // If Bob creates one with me, `participantId` = Me.
     // But `Conversation` only has ONE `participantId`.
-    // Where is the OTHER user? 
+    // Where is the OTHER user?
     // Ah, `directMessages` have `senderId` and `receiverId`.
-    
+
     // Let's rely on the original message's sender and receiver to figure out who to send the reply to.
     let receiverId;
     if (replyToMessage.senderId === userId) {
-        // I sent the original message. I am replying to the receiver of the original message.
-        receiverId = replyToMessage.receiverId;
+      // I sent the original message. I am replying to the receiver of the original message.
+      receiverId = replyToMessage.receiverId;
     } else {
-        // Someone else sent it. I am replying to them.
-        receiverId = replyToMessage.senderId;
+      // Someone else sent it. I am replying to them.
+      receiverId = replyToMessage.senderId;
     }
 
     const newMessage = await client.directMessage.create({
@@ -396,28 +413,28 @@ export const replyToMessage = catchAsync(
           },
         },
         replyTo: {
-             select: {
-                id: true,
-                content: true,
-                sender: {
-                    select: {
-                        username: true,
-                        imageUrl: true,
-                    }
-                }
-             }
-        }
+          select: {
+            id: true,
+            content: true,
+            sender: {
+              select: {
+                username: true,
+                imageUrl: true,
+              },
+            },
+          },
+        },
       },
     });
 
     // Update conversation
     await client.conversation.update({
-        where: { id: replyToMessage.conversationId },
-        data: {
-            lastMessageAt: new Date(),
-            lastMessageId: newMessage.id,
-            updatedAt: new Date(),
-        },
+      where: { id: replyToMessage.conversationId },
+      data: {
+        lastMessageAt: new Date(),
+        lastMessageId: newMessage.id,
+        updatedAt: new Date(),
+      },
     });
 
     // Determine the event name. It's just a new message, but with reply info.
@@ -425,11 +442,11 @@ export const replyToMessage = catchAsync(
     // Or we can use "reply_received".
     // Existing frontend uses `handleIncomingMessage` for `direct_message_received`.
     // `replyToMessage` thunk expects the response.
-    
+
     // Let's emit `direct_message_received` so it shows up as a new message.
     getIO().to(receiverId).emit("direct_message_received", newMessage);
     getIO().to(userId).emit("direct_message_sent", newMessage);
-    
+
     // We ALSO added `updateMessage` listener for `replyToMessage.fulfilled`.
     // So the interaction is covered.
 
@@ -437,5 +454,5 @@ export const replyToMessage = catchAsync(
       success: true,
       message: newMessage,
     });
-  }
+  },
 );

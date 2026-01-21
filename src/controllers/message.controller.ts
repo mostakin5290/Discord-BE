@@ -1,8 +1,8 @@
 import type { Response } from "express";
-import client from "../config/db.js";
 import type { AuthRequest } from "../middleware/user.middleware.js";
 import { catchAsync } from "../utils/catchAsync.js";
 import { AppError } from "../utils/AppError.js";
+import { MessageService } from "../services/message.service.js";
 import { getIO } from "../socket.js";
 import { uploadToCloudinary } from "../utils/cloudinary.js";
 
@@ -17,60 +17,16 @@ export const getChannelMessages = catchAsync(
       throw new AppError("Channel ID is required", 400);
     }
 
-    // Verify user has access to this channel
-    const channel = await client.channel.findUnique({
-      where: { id: channelId },
-      include: {
-        server: {
-          include: {
-            members: {
-              where: { userId },
-            },
-          },
-        },
-      },
-    });
-
-    if (!channel || channel.server.members.length === 0) {
-      throw new AppError("Channel not found or you don't have access", 404);
-    }
-
-    const whereClause: any = {
-      channelId: channelId,
-      deleted: false,
-    };
-
-    if (cursor) {
-      whereClause.createdAt = {
-        lt: new Date(cursor),
-      };
-    }
-
-    const messages = await client.message.findMany({
-      where: whereClause,
-      include: {
-        user: {
-          select: {
-            id: true,
-            username: true,
-            firstName: true,
-            lastName: true,
-            imageUrl: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-      take: limit,
+    const result = await MessageService.getChannelMessages(channelId, userId, {
+      limit,
+      cursor,
     });
 
     res.status(200).json({
       success: true,
-      messages: messages.reverse(),
-      hasMore: messages.length === limit,
+      ...result,
     });
-  }
+  },
 );
 
 export const sendMessage = catchAsync(
@@ -78,77 +34,64 @@ export const sendMessage = catchAsync(
     const { channelId } = req.params;
     const { content } = req.body;
     const userId = req.userId!;
-    const file = req.file;
-
-    let fileUrl = "";
-
-    if (file) {
-      fileUrl = await uploadToCloudinary(file.buffer);
-    }
-
-    if (!content && !fileUrl) {
-      throw new AppError("Message content or file is required", 400);
-    }
 
     if (!channelId) {
       throw new AppError("Channel ID is required", 400);
     }
 
-    // Verify user has access to this channel
-    const channel = await client.channel.findUnique({
-      where: { id: channelId },
-      include: {
-        server: {
-          include: {
-            members: {
-              where: { userId },
-            },
-          },
-        },
-      },
-    });
+    let fileUrl: string | undefined;
+    let fileType: string | undefined;
 
-    if (!channel || channel.server.members.length === 0) {
-      throw new AppError("Channel not found or you don't have access", 404);
+    if (req.file) {
+      const uploadResult: any = await uploadToCloudinary(req.file.buffer);
+      fileUrl = uploadResult.secure_url || uploadResult;
+      fileType = req.file.mimetype.startsWith("image") ? "image" : "file";
     }
 
-    const message = await client.message.create({
-      data: {
-        content: content || "",
-        fileUrl,
-        channelId: channelId,
-        userId: userId,
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            username: true,
-            firstName: true,
-            lastName: true,
-            imageUrl: true,
-            bannerUrl: true,
-          },
-        },
-      },
-    });
+    const messageData: { content?: string; fileUrl?: string } = {};
+    if (content) messageData.content = content;
+    if (fileUrl) messageData.fileUrl = fileUrl;
 
-    // Broadcast message via socket
-    try {
-      const io = getIO();
-      if (io) {
-        io.to(channelId).emit("receive_message", message);
-      }
-    } catch (error) {
-      console.error("Socket error:", error);
-      // Don't fail the request if socket fails
-    }
+    const message = await MessageService.sendMessage(
+      channelId,
+      userId,
+      messageData,
+    );
+
+    const io = getIO();
+    io.to(`channel:${channelId}`).emit("message:new", message);
 
     res.status(201).json({
       success: true,
       message,
     });
-  }
+  },
+);
+
+export const updateMessage = catchAsync(
+  async (req: AuthRequest, res: Response) => {
+    const { messageId } = req.params;
+    const { content } = req.body;
+    const userId = req.userId!;
+
+    if (!messageId || !content) {
+      throw new AppError("Message ID and content are required", 400);
+    }
+
+    const message = await MessageService.updateMessage(
+      messageId,
+      userId,
+      content,
+    );
+
+    const io = getIO();
+    io.emit("message:updated", message);
+
+    res.status(200).json({
+      success: true,
+      message,
+    });
+  },
 );
 
 export const deleteMessage = catchAsync(
@@ -160,113 +103,76 @@ export const deleteMessage = catchAsync(
       throw new AppError("Message ID is required", 400);
     }
 
-    const message = await client.message.findUnique({
-      where: { id: messageId },
-    });
+    const result = await MessageService.deleteMessage(messageId, userId);
 
-    if (!message) {
-      throw new AppError("Message not found", 404);
-    }
-
-    if (message.userId !== userId) {
-      throw new AppError("You can only delete your own messages", 403);
-    }
-
-    await client.message.update({
-      where: { id: messageId },
-      data: { deleted: true },
-    });
+    const io = getIO();
+    io.emit("message:deleted", { messageId });
 
     res.status(200).json({
       success: true,
-      message: "Message deleted successfully",
+      ...result,
     });
-  }
+  },
+);
+
+export const addReaction = catchAsync(
+  async (req: AuthRequest, res: Response) => {
+    const { messageId } = req.params;
+    const { emoji } = req.body;
+    const userId = req.userId!;
+
+    if (!messageId || !emoji) {
+      throw new AppError("Message ID and emoji are required", 400);
+    }
+
+    const result = await MessageService.addReaction(messageId, userId, emoji);
+
+    const io = getIO();
+    io.emit("reaction:updated", { messageId, userId, emoji, ...result });
+
+    res.status(200).json({
+      success: true,
+      ...result,
+    });
+  },
+);
+
+export const getMessageReactions = catchAsync(
+  async (req: AuthRequest, res: Response) => {
+    const { messageId } = req.params;
+
+    if (!messageId) {
+      throw new AppError("Message ID is required", 400);
+    }
+
+    const reactions = await MessageService.getMessageReactions(messageId);
+
+    res.status(200).json({
+      success: true,
+      reactions,
+    });
+  },
 );
 
 export const searchMessages = catchAsync(
   async (req: AuthRequest, res: Response) => {
     const { serverId } = req.params;
-    const { query, channelId } = req.query;
+    const { query } = req.query;
     const userId = req.userId!;
-    const limit = parseInt(req.query.limit as string) || 25;
 
-    if (!query || typeof query !== 'string') {
-      throw new AppError("Search query is required", 400);
+    if (!serverId || !query || typeof query !== "string") {
+      throw new AppError("Server ID and search query are required", 400);
     }
 
-    if (!serverId) {
-      throw new AppError("Server ID is required", 400);
-    }
-
-    // Verify user has access to this server
-    const server = await client.server.findUnique({
-      where: { id: serverId },
-      include: {
-        members: {
-          where: { userId },
-        },
-        channels: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
-    });
-
-    if (!server || server.members.length === 0) {
-      throw new AppError("Server not found or you don't have access", 404);
-    }
-
-    // Build where clause
-    const whereClause: any = {
-      deleted: false,
-      content: {
-        contains: query,
-        mode: 'insensitive',
-      },
-      channel: {
-        serverId: serverId,
-      },
-    };
-
-    // If specific channel is provided, filter by channel
-    if (channelId && typeof channelId === 'string') {
-      whereClause.channelId = channelId;
-    }
-
-    const messages = await client.message.findMany({
-      where: whereClause,
-      include: {
-        user: {
-          select: {
-            id: true,
-            username: true,
-            firstName: true,
-            lastName: true,
-            imageUrl: true,
-          },
-        },
-        channel: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-      take: limit,
-    });
+    const messages = await MessageService.searchMessages(
+      serverId,
+      userId,
+      query,
+    );
 
     res.status(200).json({
       success: true,
-      results: messages,
-      count: messages.length,
-      query,
+      messages,
     });
-  }
+  },
 );
-

@@ -12,13 +12,10 @@ export const signup = catchAsync(async (req: Request, res: Response) => {
   if (typeof body === "string") {
     try {
       body = JSON.parse(body);
-    } catch (e) {
-      // not JSON, leave as is
-    }
+    } catch (e) {}
   }
 
   const result = await AuthService.signup(body);
-  // console.log(result);
   res.status(201).json(result);
 });
 
@@ -26,11 +23,8 @@ export const login = catchAsync(async (req: Request, res: Response) => {
   let body = req.body;
   if (typeof body === "string") {
     try {
-      // console.log(body);
       body = JSON.parse(body);
-    } catch (e) {
-      // not JSON
-    }
+    } catch (e) {}
   }
 
   const result = await AuthService.login(body);
@@ -40,7 +34,6 @@ export const login = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
-// Forgot Password / Reset Password
 export const sendOtp = catchAsync(async (req: Request, res: Response) => {
   let body = req.body;
   if (typeof body === "string") {
@@ -59,15 +52,12 @@ export const sendOtp = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
-// Verify Otp
 export const verifyOtp = catchAsync(async (req: Request, res: Response) => {
   let body = req.body;
   if (typeof body === "string") {
     try {
       body = JSON.parse(body);
-    } catch (e) {
-      // not JSON
-    }
+    } catch (e) {}
   }
 
   const result = await AuthService.verifyOtp(body);
@@ -75,15 +65,12 @@ export const verifyOtp = catchAsync(async (req: Request, res: Response) => {
   res.status(200).json(result);
 });
 
-// Reset Password
 export const resetPassword = catchAsync(async (req: Request, res: Response) => {
   let body = req.body;
   if (typeof body === "string") {
     try {
       body = JSON.parse(body);
-    } catch (e) {
-      // not JSON
-    }
+    } catch (e) {}
   }
 
   const result = await AuthService.resetPassword(body);
@@ -109,9 +96,7 @@ export const socialCallback = catchAsync(
   },
 );
 
-// Get current authenticated user profile
 export const getMe = catchAsync(async (req: Request, res: Response) => {
-  // req.user is set by the protect middleware
   const user = (req as any).user;
 
   if (!user) {
@@ -141,27 +126,18 @@ export const updateProfile = catchAsync(async (req: Request, res: Response) => {
   }
 
   const { firstName, lastName, username, bio } = req.body;
-  // Handle file uploads (Avatar & Banner)
   const files = req.files as { [fieldname: string]: Express.Multer.File[] };
-
-  console.log("FILES RECEIVED:", files ? Object.keys(files) : "No files");
 
   let imageUrl = user.imageUrl;
   let bannerUrl = user.bannerUrl;
 
   if (files?.avatar?.[0]) {
-    console.log("Uploading avatar...");
     imageUrl = await uploadToCloudinary(files.avatar[0].buffer);
-    console.log("Avatar uploaded:", imageUrl);
   }
 
   if (files?.banner?.[0]) {
-    console.log("Uploading banner...", files.banner[0].originalname);
     bannerUrl = await uploadToCloudinary(files.banner[0].buffer);
-    console.log("Banner uploaded:", bannerUrl);
   }
-
-  console.log("Updating profile with:", { firstName, lastName, username, bio, imageUrl, bannerUrl });
 
   const updatedUser = await AuthService.updateProfile(user.id, {
     firstName,
@@ -174,7 +150,7 @@ export const updateProfile = catchAsync(async (req: Request, res: Response) => {
 
   res.status(200).json({
     message: "Profile updated successfully",
-      user: {
+    user: {
       id: updatedUser.id,
       firstName: updatedUser.firstName,
       lastName: updatedUser.lastName,

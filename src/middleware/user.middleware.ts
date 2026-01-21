@@ -12,12 +12,11 @@ export interface AuthRequest extends Request {
 export const protect = async (
   req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     let token;
 
-    // Check for token in Authorization header
     if (
       req.headers.authorization &&
       req.headers.authorization.startsWith("Bearer")
@@ -29,10 +28,8 @@ export const protect = async (
       throw new AppError("Not authorized. Please login.", 401);
     }
 
-    // Verify token
     const decoded = jwt.verify(token, env.JWT_SECRET) as { userId: string };
 
-    // Get user from database
     const user = await client.user.findUnique({
       where: { id: decoded.userId },
       select: {

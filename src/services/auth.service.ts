@@ -3,9 +3,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { env } from "../config/env.js";
 import { AppError } from "../utils/AppError.js";
-
 import { sendOtpMail } from "../utils/mailer.js";
-import { success } from "zod/v4";
 
 export class AuthService {
   static async signup(data: any) {
@@ -30,7 +28,6 @@ export class AuthService {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Generate OTP for email verification
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
     const newUser = await client.user.create({
@@ -46,16 +43,15 @@ export class AuthService {
       },
     });
 
-    // Send OTP email
     try {
       await sendOtpMail({ to: email, otp });
     } catch (error) {
       console.error("Failed to send OTP email:", error);
-      // Don't fail signup if email fails, but log it
     }
 
     return {
-      message: "Account created successfully! Please check your email for verification code.",
+      message:
+        "Account created successfully! Please check your email for verification code.",
       email: newUser.email,
     };
   }
@@ -112,7 +108,7 @@ export class AuthService {
   }
 
   static async findOrCreateSocialUser(profile: any, provider: string) {
-    const email = profile.email; // Extracted by passport strategy
+    const email = profile.email;
     if (!email) {
       throw new Error(`No email found from ${provider}`);
     }
@@ -140,7 +136,6 @@ export class AuthService {
         },
       });
     } else if (!user.socialId) {
-      // Link existing account
       user = await client.user.update({
         where: { id: user.id },
         data: {
@@ -156,7 +151,6 @@ export class AuthService {
     return user;
   }
 
-  // Forgot password - Send OTP
   static async sendOtp(data: any) {
     const { email } = data;
 
@@ -183,7 +177,6 @@ export class AuthService {
       },
     });
 
-    // Send the mail by nodemailer
     try {
       await sendOtpMail({ to: email, otp });
 
@@ -193,7 +186,6 @@ export class AuthService {
     } catch (error) {
       console.error("OTP process failed:", error);
 
-      // Rollback OTP if mail fails
       await client.user.update({
         where: { email },
         data: {
@@ -206,7 +198,6 @@ export class AuthService {
     }
   }
 
-  // Verify the OTP
   static async verifyOtp(data: any) {
     const { email, otp } = data;
     if (!email || !otp) {
@@ -229,7 +220,6 @@ export class AuthService {
       throw new AppError("OTP expired", 400);
     }
 
-    // OTP verified, clear it and mark as verified
     await client.user.update({
       where: { id: user.id },
       data: {
@@ -239,7 +229,6 @@ export class AuthService {
       },
     });
 
-    // Generate JWT token for the user
     const token = jwt.sign({ userId: user.id }, env.JWT_SECRET, {
       expiresIn: "7d",
     });
@@ -260,7 +249,6 @@ export class AuthService {
     };
   }
 
-  // Reset The Password
   static async resetPassword(data: any) {
     const { email, newPassword } = data;
     if (!email || !newPassword) {
@@ -288,7 +276,7 @@ export class AuthService {
       where: { id: user.id },
       data: {
         password: hashedPassword,
-        isOtpVerified: false, // Reset verification flag
+        isOtpVerified: false,
       },
     });
 
@@ -300,7 +288,6 @@ export class AuthService {
   static async updateProfile(userId: string, data: any) {
     const { firstName, lastName, username, bio, imageUrl, bannerUrl } = data;
 
-    // Check if username is taken (if being updated)
     if (username) {
       const existingUser = await client.user.findFirst({
         where: {
@@ -356,11 +343,9 @@ export class AuthService {
       }
     }
 
-    // Hash new password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
 
-    // Update password
     await client.user.update({
       where: { id: userId },
       data: {
@@ -392,7 +377,6 @@ export class AuthService {
       }
     }
 
-    // Delete user (cascade will handle related data)
     await client.user.delete({
       where: { id: userId },
     });
@@ -421,7 +405,6 @@ export class AuthService {
       }
     }
 
-    // Set isDeactivated to true
     await client.user.update({
       where: { id: userId },
       data: {

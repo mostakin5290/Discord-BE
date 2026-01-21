@@ -1,82 +1,69 @@
 import type { Response } from "express";
-import { pineconeIndex } from "../config/pinecone.js";
-import type { AuthRequest } from "../types/index.js";
-import { AppError } from "../utils/AppError.js";
+import type { AuthRequest } from "../middleware/user.middleware.js";
 import { catchAsync } from "../utils/catchAsync.js";
-import { createEmbedding } from "../utils/embedding.js";
-import client from "../config/db.js";
+import { AppError } from "../utils/AppError.js";
+import { DiscoveryService } from "../services/discovery.service.js";
 
-export const searchServers = catchAsync(
-    async (req: AuthRequest, res: Response) => {
-      const { query } = req.query;
-      if (!query || typeof query !== "string") {
-        throw new AppError("Query is required and must be a string", 400);
-      }
-  
-      const serverEmbeddings = await createEmbedding(query as string);
-  
-      const results = await pineconeIndex.query({
-        vector: serverEmbeddings,
-        topK: 10,
-        includeMetadata: true,
-      });
-  
-      const serverIds = results.matches?.map((match) => match.id) ?? [];
-  
-      const servers = await client.server.findMany({
-        where: {
-          id: {
-            in: serverIds,
-          },
-        },
-        select: {
-          id: true,
-          name: true,
-          imageUrl: true,
-          bannerUrl: true,
-          bio: true,
-          members: {
-            select: {
-              id: true,
-            }
-          },
-        }
-      });
-  
-      res.status(200).json({
-        success: true,
-        servers,
-      });
+export const discoverServers = catchAsync(
+  async (req: AuthRequest, res: Response) => {
+    const userId = req.userId!;
+    const query = req.query.search as string;
+
+    const servers = await DiscoveryService.discoverServers(userId, query);
+
+    res.status(200).json({
+      success: true,
+      servers,
+    });
+  },
+);
+
+export const getServerDetails = catchAsync(
+  async (req: AuthRequest, res: Response) => {
+    const { serverId } = req.params;
+    const userId = req.userId!;
+
+    if (!serverId) {
+      throw new AppError("Server ID is required", 400);
     }
-  );
-  
-  export const getAllServers = catchAsync(
-    async (req: AuthRequest, res: Response) => {
-      const userId = req.userId;
-  
-      if (!userId) {
-        throw new AppError("User not authenticated", 401);
-      }
-  
-      const servers = await client.server.findMany({
-        select: {
-          id: true,
-          name: true,
-          imageUrl: true,
-          bannerUrl: true,
-          bio: true,
-          members: {
-            select: {
-              id: true,
-            }
-          }
-        },
-      });
-  
-      res.status(200).json({
-        success: true,
-        servers: servers,
-      });
+
+    const server = await DiscoveryService.getServerDetails(serverId, userId);
+
+    res.status(200).json({
+      success: true,
+      server,
+    });
+  },
+);
+
+export const getCategories = catchAsync(
+  async (req: AuthRequest, res: Response) => {
+    const categories = await DiscoveryService.getCategories();
+
+    res.status(200).json({
+      success: true,
+      categories,
+    });
+  },
+);
+
+export const getServersByCategory = catchAsync(
+  async (req: AuthRequest, res: Response) => {
+    const { category } = req.params;
+    const userId = req.userId!;
+
+    if (!category) {
+      throw new AppError("Category is required", 400);
     }
-  );
-  
+
+    const servers = await DiscoveryService.getServersByCategory(
+      category,
+      userId,
+    );
+
+    res.status(200).json({
+      success: true,
+      servers,
+    });
+  },
+);

@@ -1,420 +1,163 @@
 import type { Response } from "express";
-import type { AuthRequest } from "../types/index.js";
-import { client } from "../config/db.js";
+import type { AuthRequest } from "../middleware/user.middleware.js";
 import { catchAsync } from "../utils/catchAsync.js";
 import { AppError } from "../utils/AppError.js";
+import { DMService } from "../services/dm.service.js";
 import { getIO } from "../socket.js";
+import { uploadToCloudinary } from "../utils/cloudinary.js";
 
-// Trigger restart
-
-// Get or Create Conversation
-const getOrCreateConversation = async (userId: string, friendId: string) => {
-  // Ensure consistent ordering of IDs so we always find the same conversation
-  // regardless of who started it
-  const ids = [userId, friendId].sort();
-  const userOneId = ids[0] as string;
-  const userTwoId = ids[1] as string;
-
-  // Check if conversation exists
-  let conversation = await client.conversation.findUnique({
-    where: {
-      userOneId_userTwoId: {
-        userOneId,
-        userTwoId,
-      },
-    },
-  });
-
-  // If not exists, create new conversation
-  if (!conversation) {
-    conversation = await client.conversation.create({
-      data: {
-        userOneId,
-        userTwoId,
-      },
-    });
-  }
-
-  return conversation;
-};
-
-// Get All Conversations (DM List)
-export const getConversations = catchAsync(
-  async (req: AuthRequest, res: Response) => {
-    const userId = req.userId;
-
-    if (!userId) {
-      throw new AppError("User not authenticated", 401);
-    }
-
-    // Get all friends
-    const friends = await client.friend.findMany({
-      where: { userId },
-      select: { friendId: true },
-    });
-
-    const friendIds = friends.map((f: any) => f.friendId);
-
-    if (friendIds.length === 0) {
-      return res.status(200).json({
-        success: true,
-        conversations: [],
-      });
-    }
-
-    // Get conversations where user is participant
-    const conversationsRaw = await client.conversation.findMany({
-      where: {
-        OR: [
-          { userOneId: userId },
-          { userTwoId: userId },
-        ],
-      },
-      include: {
-        userOne: {
-          select: {
-            id: true,
-            username: true,
-            firstName: true,
-            lastName: true,
-            imageUrl: true,
-          }
-        },
-        userTwo: {
-          select: {
-            id: true,
-            username: true,
-            firstName: true,
-            lastName: true,
-            imageUrl: true,
-          }
-        },
-      }
-    });
-
-    // Map to frontend format
-    const conversations = await Promise.all(
-      conversationsRaw.map(async (conversation: any) => {
-        // Determine which user is the "other" participant
-        const isUserOne = conversation.userOneId === userId;
-        const participant = isUserOne ? conversation.userTwo : conversation.userOne;
-        const participantId = participant.id;
-
-        // Get last message
-        const lastMessage = await client.directMessage.findFirst({
-          where: {
-            conversationId: conversation.id,
-            deleted: false,
-          },
-          orderBy: {
-            createdAt: "desc",
-          },
-          select: {
-            id: true,
-            content: true,
-            createdAt: true,
-            senderId: true,
-          },
-        });
-
-        // Count unread messages
-        const unreadCount = await client.directMessage.count({
-          where: {
-            conversationId: conversation.id,
-            receiverId: userId,
-            read: false,
-            deleted: false,
-          },
-        });
-
-        return {
-          id: conversation.id,
-          conversationId: conversation.id,
-          participantId: participantId,
-          participant: participant,
-          lastMessage,
-          unreadCount,
-          updatedAt: conversation.updatedAt,
-        };
-      })
-    );
-
-    // Sort by last message time
-    conversations.sort((a: any, b: any) => {
-      const timeA = a.lastMessage?.createdAt || a.updatedAt;
-      const timeB = b.lastMessage?.createdAt || b.updatedAt;
-      return new Date(timeB).getTime() - new Date(timeA).getTime();
-    });
-
-    res.status(200).json({
-      success: true,
-      conversations,
-    });
-  }
-);
-
-// Get Messages in a Conversation
-export const getConversationMessages = catchAsync(
-  async (req: AuthRequest, res: Response) => {
-    const { conversationId } = req.params;
-    const userId = req.userId;
-    const { limit = 50, cursor } = req.query;
-
-    if (!userId) {
-      throw new AppError("User not authenticated", 401);
-    }
-
-    if (!conversationId) {
-      throw new AppError("Conversation ID is required", 400);
-    }
-
-    // Verify conversation access
-    const conversation = await client.conversation.findUnique({
-      where: { id: conversationId },
-    });
-
-    if (!conversation) {
-      throw new AppError("Conversation not found", 404);
-    }
-
-    const whereClause: any = {
-      conversationId,
-      deleted: false,
-    };
-
-    if (cursor) {
-      whereClause.createdAt = {
-        lt: new Date(cursor as string),
-      };
-    }
-
-    const messages = await client.directMessage.findMany({
-      where: whereClause,
-      include: {
-        sender: {
-          select: {
-            id: true,
-            username: true,
-            firstName: true,
-            lastName: true,
-            imageUrl: true,
-          },
-        },
-        replyTo: {
-          select: {
-            id: true,
-            content: true,
-            sender: {
-              select: {
-                username: true,
-                imageUrl: true,
-              }
-            }
-          }
-        }
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-      take: Number(limit),
-    });
-
-    // Mark messages as read
-    await client.directMessage.updateMany({
-      where: {
-        conversationId,
-        receiverId: userId,
-        read: false,
-      },
-      data: {
-        read: true,
-      },
-    });
-
-    res.status(200).json({
-      success: true,
-      messages: messages.reverse(),
-      hasMore: messages.length === Number(limit),
-    });
-  }
-);
-
-// Send Direct Message
-export const sendDirectMessage = catchAsync(
+export const getOrCreateConversation = catchAsync(
   async (req: AuthRequest, res: Response) => {
     const { friendId } = req.params;
-    const { content, fileUrl } = req.body;
-    const senderId = req.userId;
-
-    if (!senderId) {
-      throw new AppError("User not authenticated", 401);
-    }
+    const userId = req.userId!;
 
     if (!friendId) {
       throw new AppError("Friend ID is required", 400);
     }
 
-    if (!content && !fileUrl) {
-      throw new AppError("Message content or file is required", 400);
-    }
-
-    // Check if users are friends
-    const friendship = await client.friend.findFirst({
-      where: {
-        userId: senderId,
-        friendId,
-      },
-    });
-
-    if (!friendship) {
-      throw new AppError("You can only send messages to friends", 403);
-    }
-
-    // Get or create conversation
-    const conversation = await getOrCreateConversation(senderId, friendId);
-
-    // Create message
-    const message = await client.directMessage.create({
-      data: {
-        content: content || "",
-        fileUrl,
-        senderId,
-        receiverId: friendId,
-        conversationId: conversation.id,
-      },
-      include: {
-        sender: {
-          select: {
-            id: true,
-            username: true,
-            firstName: true,
-            lastName: true,
-            imageUrl: true,
-          },
-        },
-        receiver: {
-          select: {
-            id: true,
-            username: true,
-            firstName: true,
-            lastName: true,
-            imageUrl: true,
-          },
-        },
-      },
-    });
-
-    // Update conversation's last message time
-    await client.conversation.update({
-      where: { id: conversation.id },
-      data: {
-        lastMessageAt: new Date(),
-        lastMessageId: message.id,
-        updatedAt: new Date(),
-      },
-    });
-
-    // Emit Socket Event
-    getIO().to(friendId).emit("direct_message_received", message);
-    getIO().to(senderId).emit("direct_message_sent", message); // Optional, for confirmation/multi-device sync
-
-    res.status(201).json({
-      success: true,
-      message,
-    });
-  }
-);
-
-// Delete Direct Message
-export const deleteDirectMessage = catchAsync(
-  async (req: AuthRequest, res: Response) => {
-    const { messageId } = req.params;
-    const userId = req.userId;
-
-    if (!userId) {
-      throw new AppError("User not authenticated", 401);
-    }
-
-    if (!messageId) {
-      throw new AppError("Message ID is required", 400);
-    }
-
-    const message = await client.directMessage.findUnique({
-      where: { id: messageId },
-    });
-
-    if (!message) {
-      throw new AppError("Message not found", 404);
-    }
-
-    if (message.senderId !== userId) {
-      throw new AppError("You can only delete your own messages", 403);
-    }
-
-    await client.directMessage.update({
-      where: { id: messageId },
-      data: { deleted: true },
-    });
+    const conversation = await DMService.getOrCreateConversation(
+      userId,
+      friendId,
+    );
 
     res.status(200).json({
       success: true,
-      message: "Message deleted successfully",
+      conversation,
     });
-  }
+  },
 );
 
-// Mark Messages as Read
-export const markMessagesAsRead = catchAsync(
+export const getAllConversations = catchAsync(
+  async (req: AuthRequest, res: Response) => {
+    const userId = req.userId!;
+    const conversations = await DMService.getAllConversations(userId);
+
+    res.status(200).json({
+      success: true,
+      conversations,
+    });
+  },
+);
+
+export const getMessages = catchAsync(
   async (req: AuthRequest, res: Response) => {
     const { conversationId } = req.params;
-    const userId = req.userId;
-
-    if (!userId) {
-      throw new AppError("User not authenticated", 401);
-    }
+    const userId = req.userId!;
+    const limit = parseInt(req.query.limit as string) || 50;
+    const cursor = req.query.cursor as string;
 
     if (!conversationId) {
       throw new AppError("Conversation ID is required", 400);
     }
 
-    const result = await client.directMessage.updateMany({
-      where: {
-        conversationId,
-        receiverId: userId,
-        read: false,
-      },
-      data: {
-        read: true,
-      },
+    const result = await DMService.getMessages(conversationId, userId, {
+      limit,
+      cursor,
     });
 
     res.status(200).json({
       success: true,
-      message: `${result.count} messages marked as read`,
+      ...result,
     });
-  }
+  },
 );
 
-// Get Unread Message Count
-export const getUnreadCount = catchAsync(
+export const sendMessage = catchAsync(
   async (req: AuthRequest, res: Response) => {
-    const userId = req.userId;
+    const { conversationId } = req.params;
+    const { content } = req.body;
+    const userId = req.userId!;
 
-    if (!userId) {
-      throw new AppError("User not authenticated", 401);
+    if (!conversationId) {
+      throw new AppError("Conversation ID is required", 400);
     }
 
-    const unreadCount = await client.directMessage.count({
-      where: {
-        receiverId: userId,
-        read: false,
-        deleted: false,
-      },
+    let fileUrl: string | undefined;
+    let fileType: string | undefined;
+
+    if (req.file) {
+      const uploadResult: any = await uploadToCloudinary(req.file.buffer);
+      fileUrl = uploadResult.secure_url || uploadResult;
+      fileType = req.file.mimetype.startsWith("image") ? "image" : "file";
+    }
+
+    const messageData: { content?: string; fileUrl?: string } = {};
+    if (content) messageData.content = content;
+    if (fileUrl) messageData.fileUrl = fileUrl;
+
+    const message = await DMService.sendMessage(
+      conversationId,
+      userId,
+      messageData,
+    );
+
+    const io = getIO();
+    io.to(`conversation:${conversationId}`).emit("dm:new", message);
+
+    res.status(201).json({
+      success: true,
+      message,
     });
+  },
+);
+
+export const updateMessage = catchAsync(
+  async (req: AuthRequest, res: Response) => {
+    const { messageId } = req.params;
+    const { content } = req.body;
+    const userId = req.userId!;
+
+    if (!messageId || !content) {
+      throw new AppError("Message ID and content are required", 400);
+    }
+
+    const message = await DMService.updateMessage(messageId, userId, content);
+
+    const io = getIO();
+    io.emit("dm:updated", message);
 
     res.status(200).json({
       success: true,
-      unreadCount,
+      message,
     });
-  }
+  },
+);
+
+export const deleteMessage = catchAsync(
+  async (req: AuthRequest, res: Response) => {
+    const { messageId } = req.params;
+    const userId = req.userId!;
+
+    if (!messageId) {
+      throw new AppError("Message ID is required", 400);
+    }
+
+    const result = await DMService.deleteMessage(messageId, userId);
+
+    const io = getIO();
+    io.emit("dm:deleted", { messageId });
+
+    res.status(200).json({
+      success: true,
+      ...result,
+    });
+  },
+);
+
+export const deleteConversation = catchAsync(
+  async (req: AuthRequest, res: Response) => {
+    const { conversationId } = req.params;
+    const userId = req.userId!;
+
+    if (!conversationId) {
+      throw new AppError("Conversation ID is required", 400);
+    }
+
+    const result = await DMService.deleteConversation(conversationId, userId);
+
+    res.status(200).json({
+      success: true,
+      ...result,
+    });
+  },
 );

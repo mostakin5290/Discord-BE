@@ -35,21 +35,21 @@ if (GOOGLE.CLIENT_ID && GOOGLE.CLIENT_SECRET) {
             {
               email: profile.emails?.[0]?.value,
               id: profile.id,
-              username: null, // Let service handle or generate
+              username: null,
               firstName: profile.name?.givenName,
               lastName: profile.name?.familyName,
               imageUrl: profile.photos?.[0]?.value,
               accessToken,
               refreshToken,
             },
-            "google"
+            "google",
           );
           return done(null, user);
         } catch (error: any) {
           return done(error, undefined);
         }
-      }
-    )
+      },
+    ),
   );
 }
 
@@ -66,15 +66,15 @@ if (GITHUB.CLIENT_ID && GITHUB.CLIENT_SECRET) {
         accessToken: string,
         refreshToken: string,
         profile: any,
-        done: any
+        done: any,
       ) => {
         try {
-           const [firstName, ...lastNameParts] = (
-              profile.displayName ||
-              profile.username ||
-              "User"
-            ).split(" ");
-            const lastName = lastNameParts.join(" ");
+          const [firstName, ...lastNameParts] = (
+            profile.displayName ||
+            profile.username ||
+            "User"
+          ).split(" ");
+          const lastName = lastNameParts.join(" ");
 
           const user = await AuthService.findOrCreateSocialUser(
             {
@@ -87,14 +87,14 @@ if (GITHUB.CLIENT_ID && GITHUB.CLIENT_SECRET) {
               accessToken,
               refreshToken,
             },
-            "github"
+            "github",
           );
-           return done(null, user);
+          return done(null, user);
         } catch (error: any) {
           return done(error, undefined);
         }
-      }
-    )
+      },
+    ),
   );
 }
 
@@ -111,11 +111,11 @@ if (FACEBOOK.APP_ID && FACEBOOK.APP_SECRET) {
         accessToken: string,
         refreshToken: string,
         profile: any,
-        done: any
+        done: any,
       ) => {
         try {
           const user = await AuthService.findOrCreateSocialUser(
-             {
+            {
               email: profile.emails?.[0]?.value,
               id: profile.id,
               username: null,
@@ -125,16 +125,15 @@ if (FACEBOOK.APP_ID && FACEBOOK.APP_SECRET) {
               accessToken,
               refreshToken,
             },
-            "facebook"
+            "facebook",
           );
           return done(null, user);
         } catch (error: any) {
           return done(error, undefined);
         }
-      }
-    )
+      },
+    ),
   );
 }
 
 export default passport;
-

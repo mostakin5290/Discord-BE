@@ -59,7 +59,9 @@ app.get("/health", (req, res) => {
 
 app.use(globalErrorHandler);
 
+
 import { initSocket } from "./socket.js";
+import { initChatQueueConsumers } from "./services/chatQueue.js";
 
 // Start Backend
 const server = app.listen(port, async () => {
@@ -69,8 +71,9 @@ const server = app.listen(port, async () => {
     console.log("Database connected successfully");
     initSocket(server);
     console.log("Socket.IO initialized");
+    await initChatQueueConsumers();
   } catch (error) {
-    console.error("Database connection failed:", error);
+    // console.error("Database connection failed:", error);
     process.exit(1);
   }
 });

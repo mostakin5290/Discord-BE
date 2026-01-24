@@ -4,6 +4,7 @@ import { client } from "../config/db.js";
 import { catchAsync } from "../utils/catchAsync.js";
 import { AppError } from "../utils/AppError.js";
 import { getIO } from "../socket.js";
+import { checkUserOnline } from "../services/redis.js";
 
 // Send Friend Request
 export const sendFriendRequest = catchAsync(
@@ -443,10 +444,22 @@ export const getFriends = catchAsync(
 
     const uniqueFriends = Array.from(uniqueFriendsMap.values());
 
+    // Inject Online Status from Redis
+    const friendsWithStatus = await Promise.all(
+      uniqueFriends.map(async (f: any) => {
+        const isOnline = await checkUserOnline(f.friendId);
+        // Ensure friend object exists before assigning
+        if (f.friend) {
+            f.friend.status = isOnline ? "online" : "offline";
+        }
+        return f;
+      })
+    );
+
     // console.log(`Found ${uniqueFriends.length} unique friends for user ${userId}`);
     res.status(200).json({
       success: true,
-      friends: uniqueFriends,
+      friends: friendsWithStatus,
     });
   },
 );

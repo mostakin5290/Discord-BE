@@ -4,6 +4,7 @@ import { client } from "../config/db.js";
 import { catchAsync } from "../utils/catchAsync.js";
 import { AppError } from "../utils/AppError.js";
 import { getIO } from "../socket.js";
+import { checkUserOnline } from "../services/redis.js";
 
 // Trigger restart
 
@@ -99,6 +100,10 @@ export const getConversations = catchAsync(
         const isUserOne = conversation.userOneId === userId;
         const participant = isUserOne ? conversation.userTwo : conversation.userOne;
         const participantId = participant.id;
+
+        // Check Online Status
+        const isOnline = await checkUserOnline(participantId);
+        participant.status = isOnline ? "online" : "offline";
 
         // Get last message
         const lastMessage = await client.directMessage.findFirst({

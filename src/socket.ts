@@ -2,13 +2,25 @@ import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
 import { env } from "./config/env.js";
 import type { Server as HttpServer } from "http";
+import {
+  setUserOnline,
+  setUserOffline,
+  subscribeToEvent,
+  checkUserOnline,
+} from "./services/redis.js";
+import { produceMessage } from "./services/kafka.js";
+import { client } from "./config/db.js";
 
 let io: Server;
 
 export const initSocket = (httpServer: HttpServer) => {
   // Get allowed origins from environment or default to localhost
-  const allowedOrigins = process.env.FRONTEND_BASE_URL 
-    ? [process.env.FRONTEND_BASE_URL, "http://localhost:5173", "http://localhost:3000"]
+  const allowedOrigins = process.env.FRONTEND_BASE_URL
+    ? [
+        process.env.FRONTEND_BASE_URL,
+        "http://localhost:5173",
+        "http://localhost:3000",
+      ]
     : ["http://localhost:5173", "http://localhost:3000"];
 
   io = new Server(httpServer, {
@@ -36,38 +48,69 @@ export const initSocket = (httpServer: HttpServer) => {
     }
   });
 
-  io.on("connection", (socket) => {
-    console.log("Socket: Client connected:", socket.id, "User:", socket.data.userId);
+  io.on("connection", async (socket) => {
+    // console.log(
+    //   "Socket: Client connected:",
+    //   socket.id,
+    //   "User:",
+    //   socket.data.userId,
+    // );
 
-    // Join a room with their userId so we can emit to them specifically
     if (socket.data.userId) {
+      await setUserOnline(socket.data.userId, "server-1");
       socket.join(socket.data.userId);
-      console.log("Socket: User", socket.data.userId, "joined room:", socket.data.userId);
-      // Broadcast that this user is online
+
+      // Broadcast to others that this user is online
       socket.broadcast.emit("user_connected", { userId: socket.data.userId });
+
+      // Send list of online friends to the newly connected user
+      try {
+        const friends = await client.friend.findMany({
+          where: { userId: socket.data.userId },
+          select: { friendId: true },
+        });
+
+        const onlineFriends = [];
+        for (const friend of friends) {
+          const isOnline = await checkUserOnline(friend.friendId);
+          if (isOnline) {
+            onlineFriends.push(friend.friendId);
+          }
+        }
+
+        // Emit to this specific socket
+        socket.emit("online_friends", { userIds: onlineFriends });
+      } catch (error) {
+        console.error("Error fetching online friends:", error);
+      }
     }
 
     socket.on("join_channel", (channelId: string) => {
       socket.join(channelId);
-      // console.log(`User ${socket.data.userId} joined channel ${channelId}`);
     });
 
     socket.on("leave_channel", (channelId: string) => {
       socket.leave(channelId);
-      // console.log(`User ${socket.data.userId} left channel ${channelId}`);
     });
 
-    socket.on("send_message", (message: any) => {
-      // Message persistence should happen via API call, then this event broadcasts it
-      // OR this event triggers persistence + broadcast.
-      // For now, assuming API call persists and returns message, and we just broadcast here.
-      // But usually, frontend calls API -> API returns msg -> Frontend emits 'new_message' -> Socket broadcasts.
-      // BETTER: API persistence triggers socket broadcast from controller.
-      
-      // However, for typical chat apps, we can just broadcast to room:
-      if (message.channelId) {
-        socket.to(message.channelId).emit("receive_message", message);
-      }
+    socket.on("send_message", async (message: any) => {
+      const payload = {
+        ...message,
+        userId: socket.data.userId,
+        createdAt: new Date(),
+        id: message.id || undefined,
+      };
+
+      const type = message.channelId ? "CHANNEL_MESSAGE" : "DIRECT_MESSAGE";
+      const topic = "chat-messages";
+
+      const key =
+        message.channelId || message.conversationId || socket.data.userId;
+
+      await produceMessage(topic, key, {
+        type,
+        payload,
+      });
     });
 
     socket.on("typing", (data: { channelId: string; isTyping: boolean }) => {
@@ -78,12 +121,32 @@ export const initSocket = (httpServer: HttpServer) => {
       });
     });
 
-    socket.on("disconnect", () => {
-      console.log("Socket: Client disconnected:", socket.id, "User:", socket.data.userId);
+    socket.on("disconnect", async () => {
+      console.log(
+        "Socket: Client disconnected:",
+        socket.id,
+        "User:",
+        socket.data.userId,
+      );
       if (socket.data.userId) {
-        socket.broadcast.emit("user_disconnected", { userId: socket.data.userId });
+        await setUserOffline(socket.data.userId);
+        socket.broadcast.emit("user_disconnected", {
+          userId: socket.data.userId,
+        });
       }
     });
+  });
+
+  subscribeToEvent("socket.updates", (message: any) => {
+    const { type, data } = message;
+    if (type === "CHANNEL_MESSAGE") {
+      io.to(data.channelId).emit("receive_message", data);
+    } else if (type === "DIRECT_MESSAGE") {
+      io.to(data.receiverId).emit("direct_message_received", data);
+      if (data.userId) {
+        io.to(data.userId).emit("direct_message_sent", data);
+      }
+    }
   });
 
   return io;

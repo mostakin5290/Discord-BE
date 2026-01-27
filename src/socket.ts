@@ -122,12 +122,12 @@ export const initSocket = (httpServer: HttpServer) => {
     });
 
     socket.on("disconnect", async () => {
-      console.log(
-        "Socket: Client disconnected:",
-        socket.id,
-        "User:",
-        socket.data.userId,
-      );
+      // console.log(
+      //   "Socket: Client disconnected:",
+      //   socket.id,
+      //   "User:",
+      //   socket.data.userId,
+      // );
       if (socket.data.userId) {
         await setUserOffline(socket.data.userId);
         socket.broadcast.emit("user_disconnected", {

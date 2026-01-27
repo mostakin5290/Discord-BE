@@ -52,7 +52,7 @@ export const ensureTopicExists = async (topicName: string) => {
           },
         ],
       });
-      console.log(`Kafka topic '${topicName}' created`);
+      // console.log(`Kafka topic '${topicName}' created`);
     }
 
     await admin.disconnect();

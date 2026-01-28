@@ -48,7 +48,6 @@ export const createServer = catchAsync(
     });
 
 
-
     // TODO: This part needs to be done in a background job
     if (server.bio) {
       const serverEmbeddings = await createEmbedding(server.bio);

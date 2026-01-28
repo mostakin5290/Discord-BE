@@ -1,12 +1,16 @@
 import { GoogleGenAI } from "@google/genai";
 
 export const createEmbedding = async (content: string) => {
-    const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_GEMINI_API_KEY! });
+    const ai = new GoogleGenAI({
+        apiKey: process.env.GOOGLE_GEMINI_API_KEY!,
+    });
+
+    console.log(10)
 
     const response = await ai.models.embedContent({
-        model: 'text-embedding-004',
+        model: "gemini-embedding-001",
         contents: content.trim().split("\n").map((line) => line.trim()),
-        config: { 
+        config: {
             outputDimensionality: 768,
         },
     });

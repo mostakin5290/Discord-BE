@@ -6,6 +6,7 @@ import { AppError } from "../utils/AppError.js";
 import client from "../config/db.js";
 import { getIO } from "../socket.js";
 import { env } from "../config/env.js";
+import redis from "../services/redis.js";
 
 export const createToken = async ({
   roomName,
@@ -96,14 +97,20 @@ export const createDirectCallToken = catchAsync(
       // console.log(`Call: Friend is ${isFriendConnected ? 'connected' : 'not connected'} to socket`);
 
       if (isFriendConnected) {
-        io.to(friendId).emit("incoming_call", {
+        await redis.set(`call:${friendId}:${userId}:${roomName}`, JSON.stringify({
           token: friendToken,
           roomName,
           fromFriendId: userId,
           fromFriendName: participantName,
           channelType: channelType,
-        });
-        // console.log(`Call: Incoming call event emitted to friend ${friendId}`);
+        }), "EX", 60 * 10);
+
+        const call = await redis.get(`call:${friendId}:${userId}:${roomName}`);
+
+        if (call) {
+          io.to(friendId).emit("incoming_call", JSON.parse(call));
+        }
+
       } else {
         console.warn(
           `Call: Friend ${friendId} is not connected to socket. Call notification not sent.`,

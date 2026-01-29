@@ -49,8 +49,9 @@ export const createServer = catchAsync(
 
 
     // TODO: This part needs to be done in a background job
-    if (server.bio) {
-      const serverEmbeddings = await createEmbedding(server.bio);
+    if (server.bio || server.name) {
+      const searchableContent = `${server.name}. ${server.bio || ''}`;
+      const serverEmbeddings = await createEmbedding(searchableContent);
 
       // Create server - vector in Pinecone
       await pineconeIndex.upsert([
@@ -58,7 +59,8 @@ export const createServer = catchAsync(
           id: server.id,
           values: serverEmbeddings,
           metadata: {
-            serverBio: server.bio,
+            serverName: server.name,
+            serverBio: server.bio || '',
           }
         },
       ]);
@@ -444,20 +446,23 @@ export const updateServer = catchAsync(
     }
 
     const bioDataChanged = getServer?.bio !== bio;
+    const nameChanged = getServer?.name !== name;
 
     const updateServer = await client.server.update({
       where: { id: serverId, userId },
       data: { name, bannerUrl, imageUrl, bio },
     });
 
-    if (bioDataChanged) {
-      const serverEmbeddings = await createEmbedding(bio as string);
+    if (bioDataChanged || nameChanged) {
+      const searchableContent = `${name}. ${bio || ''}`;
+      const serverEmbeddings = await createEmbedding(searchableContent);
       await pineconeIndex.upsert([
         {
           id: serverId,
           values: serverEmbeddings,
           metadata: {
-            serverBio: bio as string,
+            serverName: name as string,
+            serverBio: bio as string || '',
           }
         },
       ]);

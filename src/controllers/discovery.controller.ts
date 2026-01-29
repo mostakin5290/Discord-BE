@@ -23,6 +23,10 @@ export const searchServers = catchAsync(
   
       const serverIds = results.matches?.map((match) => match.id) ?? [];
   
+      const scoreMap = new Map(
+        results.matches?.map(m => [m.id, m.score || 0]) || []
+      );
+  
       const servers = await client.server.findMany({
         where: {
           id: {
@@ -43,9 +47,15 @@ export const searchServers = catchAsync(
         }
       });
   
+      const sortedServers = servers.sort((a, b) => {
+        const scoreA = scoreMap.get(a.id) || 0;
+        const scoreB = scoreMap.get(b.id) || 0;
+        return scoreB - scoreA;
+      });
+  
       res.status(200).json({
         success: true,
-        servers,
+        servers: sortedServers,
       });
     }
   );

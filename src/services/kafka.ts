@@ -3,6 +3,7 @@ import {
   type Producer,
   type Consumer,
   type EachMessagePayload,
+  logLevel,
 } from "kafkajs";
 import { env } from "../config/env.js";
 import fs from "fs";
@@ -15,6 +16,7 @@ const __dirname = path.dirname(__filename);
 const kafkaConfig: any = {
   clientId: "discord-clone",
   brokers: [env.KAFKA.BROKER],
+  logLevel: logLevel.NOTHING,
 };
 
 // Add SSL configuration if enabled
@@ -88,21 +90,32 @@ export const startConsumer = async (
   topic: string,
   handleMessage: (message: any) => Promise<void>,
 ) => {
-  const consumer = kafka.consumer({ groupId });
-  await consumer.connect();
-  await consumer.subscribe({ topic, fromBeginning: false });
-
-  await consumer.run({
-    eachMessage: async ({ topic, partition, message }: EachMessagePayload) => {
-      const value = message.value?.toString();
-      if (value) {
-        try {
-          await handleMessage(JSON.parse(value));
-        } catch (error) {
-          console.error("Error processing Kafka message:", error);
-        }
-      }
-    },
+  const consumer = kafka.consumer({ 
+    groupId,
+    retry: {
+      initialRetryTime: 100,
+      retries: 8
+    } 
   });
-  // console.log(`Kafka Consumer connected (Group: ${groupId}, Topic: ${topic})`);
+
+  try {
+    await consumer.connect();
+    await consumer.subscribe({ topic, fromBeginning: false });
+
+    await consumer.run({
+      eachMessage: async ({ topic, partition, message }: EachMessagePayload) => {
+        const value = message.value?.toString();
+        if (value) {
+          try {
+            await handleMessage(JSON.parse(value));
+          } catch (error) {
+            console.error("Error processing Kafka message:", error);
+          }
+        }
+      },
+    });
+    // console.log(`Kafka Consumer connected (Group: ${groupId}, Topic: ${topic})`);
+  } catch (error) {
+    console.error(`Failed to start consumer for group ${groupId}:`, error);
+  }
 };

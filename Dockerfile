@@ -12,6 +12,7 @@ RUN yarn install --frozen-lockfile
 COPY . .
 
 # ---- Build TypeScript ----
+RUN npx prisma generate
 RUN yarn build
 
 # ---- Expose app port ----

@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  nginx:
+    build: .
+    ports:
+      - "3000:80"
+    # No depends_on, because backends are running manually on host
+    networks:
+      - discord-net
+    restart: unless-stopped
+    # Essential for Linux/some configs, though host.docker.internal works by default on Mac Docker Desktop
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+networks:
+  discord-net:
+    driver: bridge

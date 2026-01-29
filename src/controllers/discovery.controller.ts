@@ -47,7 +47,7 @@ export const searchServers = catchAsync(
         }
       });
   
-      const sortedServers = servers.sort((a, b) => {
+      const sortedServers = servers.sort((a: any, b: any) => {
         const scoreA = scoreMap.get(a.id) || 0;
         const scoreB = scoreMap.get(b.id) || 0;
         return scoreB - scoreA;

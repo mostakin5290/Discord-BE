@@ -73,7 +73,8 @@ const server = app.listen(port, async () => {
     console.log("Socket.IO initialized");
     await initChatQueueConsumers();
   } catch (error) {
-    // console.error("Database connection failed:", error);
-    process.exit(1);
+    console.error("Initialization error:", error);
+    // Don't exit, allowing the server to stay alive even if Kafka/DB hiccups
+    // process.exit(1);
   }
 });

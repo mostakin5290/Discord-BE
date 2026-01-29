@@ -7,8 +7,10 @@
 
     // Environment Settings
     // See also https://aka.ms/tsconfig/module
-    "module": "nodenext",
-    "target": "esnext",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "target": "ES2022",
+    "esModuleInterop": true,
     "types": [],
     // For nodejs:
     // "lib": ["esnext"],
@@ -41,5 +43,5 @@
     "moduleDetection": "force",
     "skipLibCheck": true
   },
-  "exclude": ["prisma.config.ts", "dist"]
+  "exclude": ["prisma.config.ts", "dist", "node_modules"]
 }

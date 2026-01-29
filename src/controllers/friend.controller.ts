@@ -436,7 +436,7 @@ export const getFriends = catchAsync(
     // (B,A) -> Normalized to (A,B)
     // So we need to deduplicate by friendId.
     const uniqueFriendsMap = new Map();
-    friends.forEach((f) => {
+    friends.forEach((f: any) => {
       if (!uniqueFriendsMap.has(f.friendId)) {
         uniqueFriendsMap.set(f.friendId, f);
       }
@@ -651,7 +651,7 @@ export const getMutualFriends = catchAsync(
     });
 
     // Extract friend IDs
-    const myFriendIds = myFriends.map((f) =>
+    const myFriendIds = myFriends.map((f: { userId: string; friendId: string }) =>
       f.userId === currentUserId ? f.friendId : f.userId,
     );
 
@@ -667,12 +667,12 @@ export const getMutualFriends = catchAsync(
     });
 
     // Extract target user's friend IDs
-    const targetFriendIds = targetUserFriends.map((f) =>
+    const targetFriendIds = targetUserFriends.map((f: { userId: string; friendId: string }) =>
       f.userId === targetUserId ? f.friendId : f.userId,
     );
 
     // Find mutual friend IDs
-    const mutualFriendIds = myFriendIds.filter((id) =>
+    const mutualFriendIds = myFriendIds.filter((id: string) =>
       targetFriendIds.includes(id),
     );
 

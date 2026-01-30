@@ -59,9 +59,9 @@ app.get("/health", (req, res) => {
 
 app.use(globalErrorHandler);
 
-
 import { initSocket } from "./socket.js";
 import { initChatQueueConsumers } from "./services/chatQueue.js";
+import { initServerQueueConsumers } from "./services/serverQueue.js";
 
 // Start Backend
 const server = app.listen(port, async () => {
@@ -72,6 +72,7 @@ const server = app.listen(port, async () => {
     initSocket(server);
     console.log("Socket.IO initialized");
     await initChatQueueConsumers();
+    await initServerQueueConsumers();
   } catch (error) {
     console.error("Initialization error:", error);
     // Don't exit, allowing the server to stay alive even if Kafka/DB hiccups

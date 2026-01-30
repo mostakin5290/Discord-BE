@@ -3,8 +3,9 @@ import type { AuthRequest } from "../types/index.js";
 import { client } from "../config/db.js";
 import { catchAsync } from "../utils/catchAsync.js";
 import { AppError } from "../utils/AppError.js";
-import { getIO } from "../socket.js";
 import { checkUserOnline } from "../services/redis.js";
+import { produceMessage, connectProducer } from "../services/kafka.js";
+import { randomUUID } from "crypto";
 
 // Trigger restart
 
@@ -278,50 +279,68 @@ export const sendDirectMessage = catchAsync(
     // Get or create conversation
     const conversation = await getOrCreateConversation(senderId, friendId);
 
-    // Create message
-    const message = await client.directMessage.create({
-      data: {
-        content: content || "",
-        fileUrl,
-        senderId,
-        receiverId: friendId,
-        conversationId: conversation.id,
-      },
-      include: {
-        sender: {
-          select: {
-            id: true,
-            username: true,
-            firstName: true,
-            lastName: true,
-            imageUrl: true,
-          },
-        },
-        receiver: {
-          select: {
-            id: true,
-            username: true,
-            firstName: true,
-            lastName: true,
-            imageUrl: true,
-          },
-        },
+    // Generate message ID
+    const messageId = randomUUID();
+    const createdAt = new Date();
+
+    // Get sender info for response
+    const sender = await client.user.findUnique({
+      where: { id: senderId },
+      select: {
+        id: true,
+        username: true,
+        firstName: true,
+        lastName: true,
+        imageUrl: true,
       },
     });
 
-    // Update conversation's last message time
-    await client.conversation.update({
-      where: { id: conversation.id },
-      data: {
-        lastMessageAt: new Date(),
-        lastMessageId: message.id,
-        updatedAt: new Date(),
+    // Get receiver info for response
+    const receiver = await client.user.findUnique({
+      where: { id: friendId },
+      select: {
+        id: true,
+        username: true,
+        firstName: true,
+        lastName: true,
+        imageUrl: true,
       },
     });
 
-    // Emit Socket Event
-    getIO().to(friendId).emit("direct_message_received", message);
-    getIO().to(senderId).emit("direct_message_sent", message); // Optional, for confirmation/multi-device sync
+    // Prepare message payload for Kafka
+    const messagePayload = {
+      id: messageId,
+      content: content || "",
+      fileUrl: fileUrl || undefined,
+      userId: senderId,
+      receiverId: friendId,
+      conversationId: conversation.id,
+      createdAt,
+    };
+
+    // Ensure Kafka producer is connected
+    await connectProducer()
+
+    // Publish to Kafka
+    produceMessage("chat-messages", conversation.id, {
+      type: "DIRECT_MESSAGE",
+      payload: messagePayload,
+    }).catch((error) => {
+      console.error("Failed to publish direct message:", error);
+    });
+
+    // Return response immediately (optimistic response)
+    const message = {
+      id: messageId,
+      content: content || "",
+      fileUrl: fileUrl || undefined,
+      senderId,
+      receiverId: friendId,
+      conversationId: conversation.id,
+      createdAt,
+      sender,
+      receiver,
+    };
 
     res.status(201).json({
       success: true,

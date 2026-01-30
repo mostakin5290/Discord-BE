@@ -315,6 +315,8 @@ export const sendDirectMessage = catchAsync(
       userId: senderId,
       receiverId: friendId,
       conversationId: conversation.id,
+      updatedAt: createdAt,
+      sender,
       createdAt,
     };
 

@@ -126,7 +126,7 @@ export const sendMessage = catchAsync(
         firstName: true,
         lastName: true,
         imageUrl: true,
-        bannerUrl: true,
+        // bannerUrl: true,
       },
     });
 
@@ -138,6 +138,8 @@ export const sendMessage = catchAsync(
       userId,
       channelId,
       createdAt,
+      updatedAt: createdAt,
+      user,
     };
 
     // Ensure Kafka producer is connected

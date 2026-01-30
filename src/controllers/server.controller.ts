@@ -7,6 +7,7 @@ import { AppError } from "../utils/AppError.js";
 import { nanoid } from "nanoid";
 import { pineconeIndex } from "../config/pinecone.js";
 import { createEmbedding } from "../utils/embedding.js";
+import { produceMessage } from "../services/kafka.js";
 
 export const createServer = catchAsync(
   async (req: AuthRequest, res: Response) => {
@@ -48,22 +49,19 @@ export const createServer = catchAsync(
     });
 
 
-    // TODO: This part needs to be done in a background job
     if (server.bio || server.name) {
       const searchableContent = `${server.name}. ${server.bio || ''}`;
-      const serverEmbeddings = await createEmbedding(searchableContent);
 
-      // Create server - vector in Pinecone
-      await pineconeIndex.upsert([
-        {
-          id: server.id,
-          values: serverEmbeddings,
-          metadata: {
-            serverName: server.name,
-            serverBio: server.bio || '',
-          }
+      produceMessage("server-index", server.id, {
+        serverId: server.id,
+        content: {
+          name: server.name,
+          bio: server.bio || '',
+          searchContent: searchableContent,
         },
-      ]);
+      }).catch((error) => {
+        console.error("Failed to publish server index message:", error);
+      });
     }
 
     res.status(201).json({

@@ -3,8 +3,9 @@ import client from "../config/db.js";
 import type { AuthRequest } from "../middleware/user.middleware.js";
 import { catchAsync } from "../utils/catchAsync.js";
 import { AppError } from "../utils/AppError.js";
-import { getIO } from "../socket.js";
 import { uploadToCloudinary } from "../utils/cloudinary.js";
+import { produceMessage, connectProducer } from "../services/kafka.js";
+import { randomUUID } from "crypto";
 
 export const getChannelMessages = catchAsync(
   async (req: AuthRequest, res: Response) => {
@@ -112,37 +113,54 @@ export const sendMessage = catchAsync(
       throw new AppError("Channel not found or you don't have access", 404);
     }
 
-    const message = await client.message.create({
-      data: {
-        content: content || "",
-        fileUrl,
-        channelId: channelId,
-        userId: userId,
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            username: true,
-            firstName: true,
-            lastName: true,
-            imageUrl: true,
-            bannerUrl: true,
-          },
-        },
+    // Generate message ID
+    const messageId = randomUUID();
+    const createdAt = new Date();
+
+    // Get user info for response
+    const user = await client.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        username: true,
+        firstName: true,
+        lastName: true,
+        imageUrl: true,
+        bannerUrl: true,
       },
     });
 
-    // Broadcast message via socket
-    try {
-      const io = getIO();
-      if (io) {
-        io.to(channelId).emit("receive_message", message);
-      }
-    } catch (error) {
-      console.error("Socket error:", error);
-      // Don't fail the request if socket fails
-    }
+    // Prepare message payload for Kafka
+    const messagePayload = {
+      id: messageId,
+      content: content || "",
+      fileUrl: fileUrl || undefined,
+      userId,
+      channelId,
+      createdAt,
+    };
+
+    // Ensure Kafka producer is connected
+    await connectProducer();
+
+    // Publish to Kafka
+    produceMessage("chat-messages", channelId, {
+      type: "CHANNEL_MESSAGE",
+      payload: messagePayload,
+    }).catch((error) => {
+      console.error("Failed to publish channel message:", error);
+    });
+
+    // Return response immediately (optimistic response)
+    const message = {
+      id: messageId,
+      content: content || "",
+      fileUrl: fileUrl || undefined,
+      channelId,
+      userId,
+      createdAt,
+      user,
+    };
 
     res.status(201).json({
       success: true,

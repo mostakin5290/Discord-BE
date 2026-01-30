@@ -54,7 +54,7 @@ export const ensureTopicExists = async (topicName: string) => {
           },
         ],
       });
-      // console.log(`Kafka topic '${topicName}' created`);
+      console.log(`Kafka topic '${topicName}' created`);
     }
 
     await admin.disconnect();
@@ -90,12 +90,12 @@ export const startConsumer = async (
   topic: string,
   handleMessage: (message: any) => Promise<void>,
 ) => {
-  const consumer = kafka.consumer({ 
+  const consumer = kafka.consumer({
     groupId,
     retry: {
       initialRetryTime: 100,
-      retries: 8
-    } 
+      retries: 8,
+    }
   });
 
   try {

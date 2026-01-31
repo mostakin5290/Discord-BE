@@ -7,26 +7,26 @@ datasource db {
 }
 
 model User {
-  id                     String          @id @default(uuid())
-  email                  String          @unique
-  firstName              String
-  lastName               String
-  username               String          @unique
-  imageUrl               String?
-  bannerUrl              String?
-  bio                    String?         @db.VarChar(500)
-  createdAt              DateTime        @default(now())
-  updatedAt              DateTime        @updatedAt
-  accessToken            String?
-  password               String?
-  provider               String?
-  refreshToken           String?
-  socialId               String?
-  isOtpVerified          Boolean         @default(false)
-  otpExpires             DateTime?
-  resetOtp               String?
-  isDeactivated          Boolean         @default(false)
-  
+  id            String    @id @default(uuid())
+  email         String    @unique
+  firstName     String
+  lastName      String
+  username      String    @unique
+  imageUrl      String?
+  bannerUrl     String?
+  bio           String?   @db.VarChar(500)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  accessToken   String?
+  password      String?
+  provider      String?
+  refreshToken  String?
+  socialId      String?
+  isOtpVerified Boolean   @default(false)
+  otpExpires    DateTime?
+  resetOtp      String?
+  isDeactivated Boolean   @default(false)
+
   conversationsAsOne     Conversation[]  @relation("ConversationUserOne")
   conversationsAsTwo     Conversation[]  @relation("ConversationUserTwo")
   receivedDirectMessages DirectMessage[] @relation("ReceivedMessages")
@@ -38,6 +38,7 @@ model User {
   members                Member[]
   messages               Message[]
   servers                Server[]
+  bannedFromServers      BannedUser[]
 
   streamChannelId String?
   streamChannel   Channel? @relation(fields: [streamChannelId], references: [id], onDelete: Cascade)
@@ -56,9 +57,31 @@ model Server {
   channels   Channel[]
   members    Member[]
   user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roles      Role[]
+  bannedUsers BannedUser[]
+
+  // System Messages
+  systemChannelId    String?
+  systemMessageFlags Json?
 
   @@index([userId])
 }
+
+model BannedUser {
+  id        String   @id @default(cuid())
+  userId    String
+  serverId  String
+  reason    String?
+  createdAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  server Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, serverId])
+  @@index([userId])
+  @@index([serverId])
+}
+
 
 model Member {
   id        String     @id @default(cuid())
@@ -69,6 +92,7 @@ model Member {
   updatedAt DateTime   @updatedAt
   server    Server     @relation(fields: [serverId], references: [id], onDelete: Cascade)
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roles     Role[]
 
   @@unique([userId, serverId])
   @@index([userId])
@@ -136,14 +160,14 @@ model Friend {
 }
 
 model Conversation {
-  id             String          @id @default(cuid())
-  userOneId      String
-  userTwoId      String
-  lastMessageAt  DateTime?
-  lastMessageId  String?
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  
+  id            String    @id @default(cuid())
+  userOneId     String
+  userTwoId     String
+  lastMessageAt DateTime?
+  lastMessageId String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
   userOne        User            @relation("ConversationUserOne", fields: [userOneId], references: [id], onDelete: Cascade)
   userTwo        User            @relation("ConversationUserTwo", fields: [userTwoId], references: [id], onDelete: Cascade)
   directMessages DirectMessage[]
@@ -180,6 +204,24 @@ model DirectMessage {
   @@index([receiverId])
   @@index([conversationId])
   @@index([createdAt])
+}
+
+model Role {
+  id          String  @id @default(cuid())
+  name        String
+  color       String  @default("#99AAB5")
+  permissions String?
+  position    Int     @default(0)
+
+  serverId String
+  server   Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+
+  members Member[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([serverId])
 }
 
 enum MemberRole {

@@ -8,6 +8,8 @@ import { nanoid } from "nanoid";
 import { pineconeIndex } from "../config/pinecone.js";
 import { createEmbedding } from "../utils/embedding.js";
 import { produceMessage } from "../services/kafka.js";
+import { NotificationType } from "@prisma/client";
+import { sendPushNotification } from "../utils/push-notifications.js";
 
 export const createServer = catchAsync(
   async (req: AuthRequest, res: Response) => {
@@ -63,6 +65,19 @@ export const createServer = catchAsync(
         console.error("Failed to publish server index message:", error);
       });
     }
+
+    // Send push notification to all members of the server
+    sendPushNotification({
+      message: `Welcome to #${server.name} Server! 🎉`,
+      topic: "New Server",
+      notifyLink: `/server/${server.id}/${server.channels[0]?.id}`,
+      type: NotificationType.SERVER_NOTIFICATION,
+      userId: server.userId,
+      read: false,
+      readAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
 
     res.status(201).json({
       success: true,
@@ -194,21 +209,6 @@ export const joinServer = catchAsync(
       return;
     };
 
-
-    // Check if user is banned
-    const bannedUser = await client.bannedUser.findUnique({
-      where: {
-        userId_serverId: {
-          userId,
-          serverId: server.id,
-        },
-      },
-    });
-
-    if (bannedUser) {
-      throw new AppError("You are banned from this server", 403);
-    }
-
     // Add user as member
     await client.member.create({
       data: {
@@ -262,6 +262,19 @@ export const createChannel = catchAsync(
         creatorId: userId,
         serverId: serverId,
       },
+    });
+
+    // Send push notification to all members of the server
+    sendPushNotification({
+      message: `Welcome to #${channel.name} Channel! 🎉`,
+      topic: "New Channel",
+      notifyLink: `/server/${serverId}/${channel?.id}`,
+      type: NotificationType.CHANNEL_NOTIFICATION,
+      userId: userId,
+      readAt: null,
+      read: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     });
 
     res.status(201).json({
@@ -443,7 +456,7 @@ export const inviteCodeJoin = catchAsync(
 export const updateServer = catchAsync(
   async (req: AuthRequest, res: Response) => {
     const { serverId } = req.params;
-    const { name, bannerUrl, imageUrl, bio, systemChannelId, systemMessageFlags } = req.body;
+    const { name, bannerUrl, imageUrl, bio } = req.body;
     const userId = req.userId!;
 
     if (!serverId) {
@@ -463,7 +476,7 @@ export const updateServer = catchAsync(
 
     const updateServer = await client.server.update({
       where: { id: serverId, userId },
-      data: { name, bannerUrl, imageUrl, bio, systemChannelId, systemMessageFlags },
+      data: { name, bannerUrl, imageUrl, bio },
     });
 
     if (bioDataChanged || nameChanged) {

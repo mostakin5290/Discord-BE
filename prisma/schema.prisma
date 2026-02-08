@@ -38,26 +38,28 @@ model User {
   members                Member[]
   messages               Message[]
   servers                Server[]
-  bannedFromServers      BannedUser[]
+
+  bannedFromServers BannedUser[]
+  notifications     Notification[]
 
   streamChannelId String?
   streamChannel   Channel? @relation(fields: [streamChannelId], references: [id], onDelete: Cascade)
 }
 
 model Server {
-  id         String    @id @default(cuid())
-  name       String
-  bannerUrl  String?
-  imageUrl   String?
-  bio        String?   @db.VarChar(500)
-  inviteCode String?   @unique
-  userId     String
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  channels   Channel[]
-  members    Member[]
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  roles      Role[]
+  id          String       @id @default(cuid())
+  name        String
+  bannerUrl   String?
+  imageUrl    String?
+  bio         String?      @db.VarChar(500)
+  inviteCode  String?      @unique
+  userId      String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  channels    Channel[]
+  members     Member[]
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roles       Role[]
   bannedUsers BannedUser[]
 
   // System Messages
@@ -81,7 +83,6 @@ model BannedUser {
   @@index([userId])
   @@index([serverId])
 }
-
 
 model Member {
   id        String     @id @default(cuid())
@@ -222,6 +223,30 @@ model Role {
   updatedAt DateTime @updatedAt
 
   @@index([serverId])
+}
+
+model Notification {
+  id         String           @id @default(cuid())
+  topic      String?          @db.VarChar(100)
+  message    String?          @db.VarChar(200)
+  notifyLink String?
+  type       NotificationType @default(SYSTEM_NOTIFICATION)
+  userId     String
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  read   Boolean   @default(false)
+  readAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum NotificationType {
+  SYSTEM_NOTIFICATION
+  FRIEND_REQUEST_NOTIFICATION
+  SERVER_NOTIFICATION
+  CHANNEL_NOTIFICATION
+  DM_NOTIFICATION
 }
 
 enum MemberRole {

@@ -2,7 +2,7 @@ import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
 import { env } from "./config/env.js";
 import type { Server as HttpServer } from "http";
-import {
+import redis, {
   setUserOnline,
   setUserOffline,
   subscribeToEvent,
@@ -17,10 +17,10 @@ export const initSocket = (httpServer: HttpServer) => {
   // Get allowed origins from environment or default to localhost
   const allowedOrigins = process.env.FRONTEND_BASE_URL
     ? [
-        process.env.FRONTEND_BASE_URL,
-        "http://localhost:5173",
-        "http://localhost:3000",
-      ]
+      process.env.FRONTEND_BASE_URL,
+      "http://localhost:5173",
+      "http://localhost:3000",
+    ]
     : ["http://localhost:5173", "http://localhost:3000"];
 
   io = new Server(httpServer, {
@@ -121,6 +121,46 @@ export const initSocket = (httpServer: HttpServer) => {
       });
     });
 
+    // socket.on("leave_call", async ({ friendId, roomName }) => {
+    //   try {
+    //     const userId = socket.data.userId;
+    //     if (!userId || !friendId) return;
+
+    //     const patterns = [
+    //       `call:${friendId}:${userId}:${roomName}`,
+    //       `call:${userId}:${friendId}:${roomName}`,
+    //     ];
+
+    //     for (const key of patterns) {
+    //       await redis.del(key);
+    //     };
+
+    //     // Notify the other user on all devices
+    //     socket.to(friendId).emit("call_ended", {
+    //       roomName,
+    //       by: userId,
+    //     });
+
+    //   } catch (err) {
+    //     console.error("leave_call error:", err);
+    //   }
+    // });
+
+    // socket.on("picked_call", async ({ friendId, roomName }) => {
+    //   try {
+    //     if (!friendId) return;
+
+    //     // Notify the other user on all devices
+    //     socket.to(friendId).emit("call_accepted", {
+    //       roomName,
+    //       friendId,
+    //     });
+
+    //   } catch (err) {
+    //     console.error("call_accepted error:", err);
+    //   }
+    // })
+
     socket.on("disconnect", async () => {
       // console.log(
       //   "Socket: Client disconnected:",
@@ -145,6 +185,10 @@ export const initSocket = (httpServer: HttpServer) => {
       io.to(data.receiverId).emit("direct_message_received", data);
       if (data.userId) {
         io.to(data.userId).emit("direct_message_sent", data);
+      }
+    } else if (type === "NOTIFICATION") {
+      if (data.userId) {
+        io.to(data.userId).emit("notification_received", data);
       }
     }
   });

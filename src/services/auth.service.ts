@@ -5,7 +5,6 @@ import { env } from "../config/env.js";
 import { AppError } from "../utils/AppError.js";
 
 import { sendOtpMail } from "../utils/mailer.js";
-import { success } from "zod/v4";
 
 export class AuthService {
   static async signup(data: any) {

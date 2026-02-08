@@ -50,7 +50,7 @@ export const ensureTopicExists = async (topicName: string) => {
           {
             topic: topicName,
             numPartitions: 2,
-            replicationFactor: 2,
+            replicationFactor: 1,
           },
         ],
       });
@@ -65,8 +65,9 @@ export const ensureTopicExists = async (topicName: string) => {
 
 export const connectProducer = async () => {
   if (producer) return producer;
-  producer = kafka.producer();
-  await producer.connect();
+  const newProducer = kafka.producer();
+  await newProducer.connect();
+  producer = newProducer;
   console.log("Kafka Producer connected");
   return producer;
 };
@@ -79,10 +80,17 @@ export const produceMessage = async (
   if (!producer) {
     await connectProducer();
   }
-  await producer?.send({
+
+  if (!producer) {
+    throw new Error('Kafka producer not available');
+  }
+
+  await producer.send({  // ✅ Remove the optional chaining
     topic,
     messages: [{ key, value: JSON.stringify(message) }],
   });
+
+  console.log(`Message produced to ${topic} with key ${key}`);
 };
 
 export const startConsumer = async (

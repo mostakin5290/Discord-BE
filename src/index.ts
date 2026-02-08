@@ -12,6 +12,7 @@ import friendRoutes from "./routes/friend.routes.js";
 import dmRoutes from "./routes/dm.routes.js";
 import dmActionsRoutes from "./routes/dm-actions.routes.js";
 import discoveryRoutes from "./routes/discovery.routes.js";
+import notificationRoutes from "./routes/notification.route.js";
 
 import dotenv from "dotenv";
 dotenv.config();
@@ -50,7 +51,7 @@ app.use("/api/v1/dm", dmRoutes);
 app.use("/api/v1/dm-actions", dmActionsRoutes);
 app.use("/api/v1/livekit", livekitRoutes);
 app.use("/api/v1/discovery", discoveryRoutes);
-app.use("/api/v1/notifications", notificationRoutes);
+app.use("/api/v1/notification", notificationRoutes);
 
 app.get("/health", (req, res) => {
   res.status(200).json({
@@ -63,7 +64,7 @@ app.use(globalErrorHandler);
 import { initSocket } from "./socket.js";
 import { initChatQueueConsumers } from "./services/chatQueue.js";
 import { initServerQueueConsumers } from "./services/serverQueue.js";
-import notificationRoutes from "./routes/notification.route.js";
+import { initNotificationQueueConsumers } from "./services/notificationQueue.js";
 
 // Start Backend
 const server = app.listen(port, async () => {
@@ -75,6 +76,9 @@ const server = app.listen(port, async () => {
     console.log("Socket.IO initialized");
     await initChatQueueConsumers();
     await initServerQueueConsumers();
+    await initNotificationQueueConsumers();
+
+    console.log("All consumers initialized");
   } catch (error) {
     console.error("Initialization error:", error);
     // Don't exit, allowing the server to stay alive even if Kafka/DB hiccups

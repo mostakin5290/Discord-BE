@@ -12,11 +12,10 @@ export const CreateServerSchema = z.object({
   bio: z.string().optional(),
 });
 
-
 export interface NotificationPayload {
   id?: string;
-  message: string;
-  topic: string;
+  message?: string;
+  topic?: string;
   notifyLink?: string;
   type: NotificationType;
   userId: string;

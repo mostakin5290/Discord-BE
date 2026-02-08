@@ -50,6 +50,7 @@ app.use("/api/v1/dm", dmRoutes);
 app.use("/api/v1/dm-actions", dmActionsRoutes);
 app.use("/api/v1/livekit", livekitRoutes);
 app.use("/api/v1/discovery", discoveryRoutes);
+app.use("/api/v1/notifications", notificationRoutes);
 
 app.get("/health", (req, res) => {
   res.status(200).json({
@@ -62,6 +63,7 @@ app.use(globalErrorHandler);
 import { initSocket } from "./socket.js";
 import { initChatQueueConsumers } from "./services/chatQueue.js";
 import { initServerQueueConsumers } from "./services/serverQueue.js";
+import notificationRoutes from "./routes/notification.route.js";
 
 // Start Backend
 const server = app.listen(port, async () => {

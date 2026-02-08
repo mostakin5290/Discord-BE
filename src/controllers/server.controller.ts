@@ -8,6 +8,8 @@ import { nanoid } from "nanoid";
 import { pineconeIndex } from "../config/pinecone.js";
 import { createEmbedding } from "../utils/embedding.js";
 import { produceMessage } from "../services/kafka.js";
+import { NotificationType } from "@prisma/client";
+import { sendPushNotification } from "../utils/push-notifications.js";
 
 export const createServer = catchAsync(
   async (req: AuthRequest, res: Response) => {
@@ -63,6 +65,19 @@ export const createServer = catchAsync(
         console.error("Failed to publish server index message:", error);
       });
     }
+
+    // Send push notification to all members of the server
+    sendPushNotification({
+      message: `Welcome to #${server.name} Server! 🎉`,
+      topic: "New Server",
+      notifyLink: `/server/${server.id}/${server.channels[0]?.id}`,
+      type: NotificationType.SERVER_NOTIFICATION,
+      userId: server.userId,
+      read: false,
+      readAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
 
     res.status(201).json({
       success: true,
@@ -194,21 +209,6 @@ export const joinServer = catchAsync(
       return;
     };
 
-
-    // Check if user is banned
-    const bannedUser = await client.bannedUser.findUnique({
-      where: {
-        userId_serverId: {
-          userId,
-          serverId: server.id,
-        },
-      },
-    });
-
-    if (bannedUser) {
-      throw new AppError("You are banned from this server", 403);
-    }
-
     // Add user as member
     await client.member.create({
       data: {
@@ -262,6 +262,19 @@ export const createChannel = catchAsync(
         creatorId: userId,
         serverId: serverId,
       },
+    });
+
+    // Send push notification to all members of the server
+    sendPushNotification({
+      message: `Welcome to #${channel.name} Channel! 🎉`,
+      topic: "New Channel",
+      notifyLink: `/server/${serverId}/${channel?.id}`,
+      type: NotificationType.CHANNEL_NOTIFICATION,
+      userId: userId,
+      readAt: null,
+      read: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     });
 
     res.status(201).json({
@@ -443,7 +456,7 @@ export const inviteCodeJoin = catchAsync(
 export const updateServer = catchAsync(
   async (req: AuthRequest, res: Response) => {
     const { serverId } = req.params;
-    const { name, bannerUrl, imageUrl, bio, systemChannelId, systemMessageFlags } = req.body;
+    const { name, bannerUrl, imageUrl, bio } = req.body;
     const userId = req.userId!;
 
     if (!serverId) {
@@ -463,7 +476,7 @@ export const updateServer = catchAsync(
 
     const updateServer = await client.server.update({
       where: { id: serverId, userId },
-      data: { name, bannerUrl, imageUrl, bio, systemChannelId, systemMessageFlags },
+      data: { name, bannerUrl, imageUrl, bio },
     });
 
     if (bioDataChanged || nameChanged) {
@@ -485,182 +498,6 @@ export const updateServer = catchAsync(
       success: true,
       message: "Server updated successfully",
       server: updateServer,
-    });
-  }
-);
-
-export const regenerateInviteCode = catchAsync(
-  async (req: AuthRequest, res: Response) => {
-    const { serverId } = req.params;
-    const userId = req.userId!;
-
-    if (!serverId) {
-      throw new AppError("Server ID is required", 400);
-    }
-
-    // Verify user is admin
-    const member = await client.member.findFirst({
-      where: {
-        userId,
-        serverId,
-        role: "ADMIN",
-      },
-    });
-
-    if (!member) {
-      throw new AppError("You don't have permission to regenerate invite code", 403);
-    }
-
-    const newInviteCode = nanoid(10);
-
-    const updatedServer = await client.server.update({
-      where: { id: serverId },
-      data: {
-        inviteCode: newInviteCode,
-      },
-      select: {
-        inviteCode: true,
-        id: true,
-      }
-    });
-
-    res.status(200).json({
-      success: true,
-      message: "Invite code regenerated successfully",
-      inviteCode: updatedServer.inviteCode,
-      serverId: updatedServer.id,
-    });
-  }
-);
-
-export const kickMember = catchAsync(
-  async (req: AuthRequest, res: Response) => {
-    const { serverId, memberId } = req.params;
-    const userId = req.userId!;
-
-    if (!serverId || !memberId) {
-      throw new AppError("Server ID and Member ID are required", 400);
-    }
-
-    // Verify current user permissions (must be ADMIN or MODERATOR)
-    const currentUserMember = await client.member.findFirst({
-      where: {
-        userId,
-        serverId,
-      },
-    });
-
-    if (!currentUserMember || (currentUserMember.role !== "ADMIN" && currentUserMember.role !== "MODERATOR")) {
-      throw new AppError("You don't have permission to kick members", 403);
-    }
-
-    // Prevent kicking self
-    if (currentUserMember.id === memberId) {
-      throw new AppError("You cannot kick yourself", 400);
-    }
-
-    // Find the member to kick
-    const memberToKick = await client.member.findUnique({
-      where: {
-        id: memberId,
-      },
-      include: {
-        user: true,
-      }
-    });
-
-    if (!memberToKick) {
-      throw new AppError("Member not found", 404);
-    }
-
-    // Prevent kicking Admins (unless you are owner - simplified here to just admin check)
-    // In a real app, you'd check role hierarchy. For now, let's say Admin cannot be kicked by anyone except maybe owner?
-    // Let's assume ADMIN role is highest and cannot be kicked by MODERATOR.
-    if (memberToKick.role === "ADMIN") {
-       throw new AppError("Cannot kick an Admin", 403);
-    }
-    
-    // Make sure Moderator cannot kick another Moderator? 
-    if (currentUserMember.role === "MODERATOR" && memberToKick.role === "MODERATOR") {
-      throw new AppError("Moderators cannot kick other Moderators", 403);
-    }
-
-
-    await client.member.delete({
-      where: {
-        id: memberId,
-      },
-    });
-
-    res.status(200).json({
-      success: true,
-      message: "Member kicked successfully",
-      memberId: memberId,
-    });
-  }
-);
-
-export const banMember = catchAsync(
-  async (req: AuthRequest, res: Response) => {
-    const { serverId, memberId } = req.params;
-    const userId = req.userId!;
-
-    if (!serverId || !memberId) {
-      throw new AppError("Server ID and Member ID are required", 400);
-    }
-
-    // Verify permissions
-    const currentUserMember = await client.member.findFirst({
-      where: {
-        userId,
-        serverId,
-      },
-    });
-
-    if (!currentUserMember || (currentUserMember.role !== "ADMIN" && currentUserMember.role !== "MODERATOR")) {
-      throw new AppError("You don't have permission to ban members", 403);
-    }
-
-    // Prevent banning self
-    if (currentUserMember.id === memberId) {
-      throw new AppError("You cannot ban yourself", 400);
-    }
-
-    // Find member
-    const memberToBan = await client.member.findUnique({
-      where: { id: memberId },
-    });
-
-    if (!memberToBan) {
-      throw new AppError("Member not found", 404);
-    }
-
-    // Hierarchy checks
-    if (memberToBan.role === "ADMIN") {
-      throw new AppError("Cannot ban an Admin", 403);
-    }
-     if (currentUserMember.role === "MODERATOR" && memberToBan.role === "MODERATOR") {
-      throw new AppError("Moderators cannot ban other Moderators", 403);
-    }
-
-    // Transaction: Delete member AND create BannedUser entry
-    await client.$transaction([
-      client.member.delete({
-        where: { id: memberId },
-      }),
-      client.bannedUser.create({
-        data: {
-          userId: memberToBan.userId,
-          serverId: serverId,
-          reason: "Banned by moderator", // Could pass this in body
-        },
-      }),
-    ]);
-
-    res.status(200).json({
-      success: true,
-      message: "Member banned successfully",
-      memberId: memberId,
     });
   }
 );

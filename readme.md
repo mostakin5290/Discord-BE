@@ -38,7 +38,7 @@
 
 **Server Chat**
 
-https://raw.githubusercontent.com/MehulxBuilds/user-attachments/main/assets/server-chat.mp4
+https://github.com/user-attachments/assets/99a043d9-32fd-4946-bfde-c3f1cf5306c3
 
 ### 🎮 Servers & Community
 -   **Role-Based Access Control (RBAC)**: granular permissions for server optimization.
@@ -47,11 +47,11 @@ https://raw.githubusercontent.com/MehulxBuilds/user-attachments/main/assets/serv
 
 **Server Creation**
 
-https://raw.githubusercontent.com/MehulxBuilds/user-attachments/main/assets/server-creation.mp4
+https://github.com/user-attachments/assets/9228d902-7a5d-4118-a548-8d56f62f16bd
 
 **Push Notifications**
 
-https://raw.githubusercontent.com/MehulxBuilds/user-attachments/main/assets/discord-notification.mp4
+https://github.com/user-attachments/assets/3e2ffe2f-394e-4816-bf0f-c711dde556f9
 
 ### 📹 Voice & Video (LiveKit)
 -   **SFU Architecture**: Scalable generic conferencing using LiveKit.
@@ -67,7 +67,7 @@ https://raw.githubusercontent.com/MehulxBuilds/user-attachments/main/assets/disc
 
 **App Discovery**
 
-https://raw.githubusercontent.com/MehulxBuilds/user-attachments/main/assets/discovery.mp4
+https://github.com/user-attachments/assets/01bd4ee8-f9b3-49b2-ae2c-2d7069269291
 
 ---
 

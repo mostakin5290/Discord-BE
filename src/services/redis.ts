@@ -45,4 +45,18 @@ export const subscribeToEvent = (
   });
 };
 
+// Last Seen Redis Functions
+export const updateLastSeenInRedis = async (userId: string, channelId: string, messageId: string) => {
+  await redis.hset(`user:lastseen:${userId}`, channelId, messageId);
+};
+
+export const getLastSeenFromRedis = async (userId: string): Promise<Record<string, string>> => {
+  const data = await redis.hgetall(`user:lastseen:${userId}`);
+  return data || {};
+};
+
+export const clearLastSeenFromRedis = async (userId: string) => {
+  await redis.del(`user:lastseen:${userId}`);
+};
+
 export default redis;

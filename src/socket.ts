@@ -7,9 +7,13 @@ import redis, {
   setUserOffline,
   subscribeToEvent,
   checkUserOnline,
+  updateLastSeenInRedis,
+  getLastSeenFromRedis,
+  clearLastSeenFromRedis,
 } from "./services/redis.js";
 import { produceMessage } from "./services/kafka.js";
 import { client } from "./config/db.js";
+import { syncLastSeenToDB } from "./services/lastSeenSync.js";
 
 let io: Server;
 
@@ -49,24 +53,25 @@ export const initSocket = (httpServer: HttpServer) => {
   });
 
   io.on("connection", async (socket) => {
-    // console.log(
-    //   "Socket: Client connected:",
-    //   socket.id,
-    //   "User:",
-    //   socket.data.userId,
-    // );
+    const userId = socket.data.userId;
 
-    if (socket.data.userId) {
-      await setUserOnline(socket.data.userId, "server-1");
-      socket.join(socket.data.userId);
+    if (userId) {
+      await setUserOnline(userId, "server-1");
+      socket.join(userId);
 
-      // Broadcast to others that this user is online
-      socket.broadcast.emit("user_connected", { userId: socket.data.userId });
+      // Periodic sync every 5 minutes
+      const syncInterval = setInterval(() => {
+        syncLastSeenToDB(userId).catch(console.error);
+      }, 5 * 60 * 1000);
+
+      socket.on("disconnect", () => clearInterval(syncInterval));
+
+      socket.broadcast.emit("user_connected", { userId });
 
       // Send list of online friends to the newly connected user
       try {
         const friends = await client.friend.findMany({
-          where: { userId: socket.data.userId },
+          where: { userId },
           select: { friendId: true },
         });
 
@@ -121,58 +126,56 @@ export const initSocket = (httpServer: HttpServer) => {
       });
     });
 
-    // socket.on("leave_call", async ({ friendId, roomName }) => {
-    //   try {
-    //     const userId = socket.data.userId;
-    //     if (!userId || !friendId) return;
-
-    //     const patterns = [
-    //       `call:${friendId}:${userId}:${roomName}`,
-    //       `call:${userId}:${friendId}:${roomName}`,
-    //     ];
-
-    //     for (const key of patterns) {
-    //       await redis.del(key);
-    //     };
-
-    //     // Notify the other user on all devices
-    //     socket.to(friendId).emit("call_ended", {
-    //       roomName,
-    //       by: userId,
-    //     });
-
-    //   } catch (err) {
-    //     console.error("leave_call error:", err);
-    //   }
-    // });
-
-    // socket.on("picked_call", async ({ friendId, roomName }) => {
-    //   try {
-    //     if (!friendId) return;
-
-    //     // Notify the other user on all devices
-    //     socket.to(friendId).emit("call_accepted", {
-    //       roomName,
-    //       friendId,
-    //     });
-
-    //   } catch (err) {
-    //     console.error("call_accepted error:", err);
-    //   }
-    // })
+    // Update last seen in Redis
+    socket.on("update_last_seen", async (data: { channelId: string; messageId: string }) => {
+      const userId = socket.data.userId;
+      if (userId) {
+        await updateLastSeenInRedis(userId, data.channelId, data.messageId);
+        console.log(`📖 [REDIS] User ${userId} viewed message ${data.messageId} in channel ${data.channelId}`);
+      }
+    });
 
     socket.on("disconnect", async () => {
-      // console.log(
-      //   "Socket: Client disconnected:",
-      //   socket.id,
-      //   "User:",
-      //   socket.data.userId,
-      // );
-      if (socket.data.userId) {
-        await setUserOffline(socket.data.userId);
-        socket.broadcast.emit("user_disconnected", {
-          userId: socket.data.userId,
-        });
+      const userId = socket.data.userId;
+      console.log("\n🔴 [DISCONNECT] User disconnecting:", userId);
+      
+      if (userId) {
+        // Get last seen data from Redis
+        const lastSeenData = await getLastSeenFromRedis(userId);
+        const entries = Object.entries(lastSeenData);
+        
+        if (entries.length > 0) {
+          console.log(`💾 [SAVING] Found ${entries.length} channels to save for user ${userId}`);
+          
+          try {
+            const updates = entries.map(([channelId, messageId]) => 
+              client.message.findUnique({
+                where: { id: messageId },
+                select: { seenBy: true }
+              }).then((msg) => {
+                if (!msg || (msg.seenBy || []).includes(userId)) return null;
+                return client.message.update({
+                  where: { id: messageId },
+                  data: { seenBy: [...(msg.seenBy || []), userId] },
+                });
+              }).catch(() => null)
+            );
+            
+            await Promise.all(updates);
+            console.log(`✅ [SUCCESS] Last seen data saved to DB for user: ${userId}`);
+          } catch (error) {
+            console.error(`❌ [ERROR] Failed to save last seen:`, error);
+          }
+          
+          // Clear Redis
+          await clearLastSeenFromRedis(userId);
+          console.log(`🗑️  [CLEANUP] Redis cleared for user ${userId}\n`);
+        } else {
+          console.log(`ℹ️  [INFO] No last seen data to save for user ${userId}\n`);
+        }
+        
+        await setUserOffline(userId);
+        socket.broadcast.emit("user_disconnected", { userId });
       }
     });
   });

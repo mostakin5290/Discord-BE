@@ -159,6 +159,7 @@ export const getServerById = catchAsync(
                 streamChannelId: true,
               },
             },
+            roles: true,
           },
         },
       },
@@ -346,7 +347,12 @@ export const leaveServer = catchAsync(
       return;
     };
 
-    if (searchMember.role === "ADMIN") {
+    const server = await client.server.findUnique({
+      where: { id: serverId },
+      select: { userId: true }
+    });
+
+    if (server?.userId === userId) {
       // Check if there are other members
       const memberCount = await client.member.count({
         where: {
@@ -357,12 +363,12 @@ export const leaveServer = catchAsync(
       if (memberCount > 1) {
         res.status(400).json({
           success: false,
-          error: "Admins cannot leave server. You must transfer ownership or delete the server."
+          error: "Owner cannot leave server. You must transfer ownership or delete the server."
         })
         return;
       }
 
-      // If only member (the admin), delete the server
+      // If only member (the owner), delete the server
       await client.server.delete({
         where: {
           id: serverId ?? "",
@@ -474,8 +480,27 @@ export const updateServer = catchAsync(
     const bioDataChanged = getServer?.bio !== bio;
     const nameChanged = getServer?.name !== name;
 
+    const member = await client.member.findFirst({
+      where: {
+        userId,
+        serverId,
+        role: {
+          in: ["ADMIN", "MODERATOR"] // Review: Should Moderator update settings? Plan said Admins. Let's stick to ADMIN for settings.
+        }
+      }
+    });
+
+    const isOwner = getServer.userId === userId;
+    const isAdmin = member?.role === "ADMIN";
+
+    if (!isOwner && !isAdmin) {
+       throw new AppError("You do not have permission to update server settings", 403);
+    }
+    
+    // ... logic for updates ...
+    
     const updateServer = await client.server.update({
-      where: { id: serverId, userId },
+      where: { id: serverId }, // Removed userId check since we verified permissions separately
       data: { name, bannerUrl, imageUrl, bio },
     });
 
@@ -674,6 +699,137 @@ export const banMember = catchAsync(
       success: true,
       message: "Member banned successfully",
       memberId: memberId,
+    });
+  }
+);
+
+export const deleteServer = catchAsync(
+  async (req: AuthRequest, res: Response) => {
+    const { serverId } = req.params;
+    const userId = req.userId!;
+
+    if (!serverId) {
+      throw new AppError("Server ID is required", 400);
+    }
+
+    const server = await client.server.findUnique({
+      where: { id: serverId },
+    });
+
+    if (!server) {
+      throw new AppError("Server not found", 404);
+    }
+
+    if (server.userId !== userId) {
+      throw new AppError("Only the server owner can delete the server", 403);
+    }
+
+    await client.server.delete({
+      where: { id: serverId },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Server deleted successfully",
+    });
+  }
+);
+
+export const updateMemberRole = catchAsync(
+  async (req: AuthRequest, res: Response) => {
+    const { serverId, memberId } = req.params;
+    const { role } = req.body; // GUEST, MODERATOR, ADMIN
+    const userId = req.userId!;
+
+    if (!serverId || !memberId || !role) {
+      throw new AppError("Server ID, Member ID and Role are required", 400);
+    }
+
+    // Check if role is valid
+    if (!["GUEST", "MODERATOR", "ADMIN"].includes(role)) {
+         throw new AppError("Invalid role", 400);
+    }
+
+    // Verify current user permissions (Must be ADMIN or OWNER)
+    // Note: We need to fetch the server to check ownership efficiently or we can fetch member
+    const currentUserMember = await client.member.findFirst({
+        where: { userId, serverId },
+        include: { server: true }
+    });
+
+    if (!currentUserMember) {
+        throw new AppError("You are not a member of this server", 403);
+    }
+
+    const isOwner = currentUserMember.server.userId === userId;
+    const isAdmin = currentUserMember.role === "ADMIN";
+
+    if (!isOwner && !isAdmin) {
+        throw new AppError("You do not have permission to manage roles", 403);
+    }
+
+    // Target member
+    const targetMember = await client.member.findUnique({
+        where: { id: memberId },
+    });
+
+    if (!targetMember) {
+        throw new AppError("Member not found", 404);
+    }
+
+    // Validations:
+    // 1. Cannot change owner's role
+    // 2. Admin cannot change another Admin's role (unless Owner?) - Let's say Admin can manage anyone except Owner for simplicity, or strictly hierarchical.
+    // Let's implement: Owner can do anything. Admin can manage Mod/Guest. Admin cannot manage other Admins?
+    
+    // Check if target is owner
+    if (targetMember.userId === currentUserMember.server.userId) {
+        throw new AppError("Cannot change role of the server owner", 403);
+    }
+
+    // If current user is just Admin (not Owner), they cannot touch other Admins
+    if (!isOwner && targetMember.role === "ADMIN") {
+         throw new AppError("Admins cannot modify other Admins", 403);
+    }
+
+    // If role (enum) is provided, update the main role
+    if (role && ["GUEST", "MODERATOR", "ADMIN"].includes(role)) {
+        await client.member.update({
+            where: { id: memberId },
+            data: { role },
+        });
+    }
+
+    // If roleIds (custom roles) are provided, update the relation
+    const { roleIds } = req.body;
+    if (roleIds && Array.isArray(roleIds)) {
+        // Validation: Verify all roles belong to this server
+        const validRoles = await client.role.findMany({
+            where: {
+                id: { in: roleIds },
+                serverId,
+            },
+            select: { id: true },
+        });
+        
+        const validRoleIds = validRoles.map(r => r.id);
+
+        await client.member.update({
+            where: { id: memberId },
+            data: {
+                roles: {
+                    set: validRoleIds.map(id => ({ id })),
+                }
+            }
+        });
+    }
+
+    res.status(200).json({
+        success: true,
+        message: "Member roles updated successfully",
+        memberId,
+        role,
+        roleIds,
     });
   }
 );

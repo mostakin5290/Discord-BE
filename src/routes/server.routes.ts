@@ -12,6 +12,8 @@ import {
   regenerateInviteCode,
   kickMember,
   banMember,
+  deleteServer,
+  updateMemberRole,
 } from "../controllers/server.controller.js";
 import { protect } from "../middleware/user.middleware.js";
 import roleRoutes from "./role.routes.js";
@@ -36,6 +38,9 @@ serverRoutes.patch("/:serverId/invite", regenerateInviteCode);
 
 serverRoutes.post("/kick/:serverId/:memberId", kickMember as any);
 serverRoutes.post("/ban/:serverId/:memberId", banMember as any);
+
+serverRoutes.delete("/:serverId", deleteServer as any);
+serverRoutes.patch("/:serverId/members/:memberId/role", updateMemberRole as any);
 
 
 export default serverRoutes;

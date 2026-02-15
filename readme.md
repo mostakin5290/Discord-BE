@@ -10,18 +10,56 @@
 
 ---
 
-## 🏗️ Architecture & Services
+## 🛠️ Complete Tech Stack
 
-The backend is built as a **Modular Monolith** using Express.js, with distinct service layers for scalability.
+| Category | Technologies |
+| :--- | :--- |
+| **Core** | Node.js, Express.js, TypeScript |
+| **Database** | PostgreSQL (Prisma ORM), Redis (ioredis), Pinecone (Vector DB) |
+| **Real-time** | Socket.io, Apache Kafka (KafkaJS) |
+| **Authentication** | JWT, Passport.js (Google, GitHub, Facebook), Bcrypt |
+| **Media & Storage** | LiveKit (WebRTC), Cloudinary, UploadThing, Multer |
+| **AI & ML** | Google Gemini (GenAI), Pinecone SDK |
+| **Utilities** | Zod (Validation), Nodemailer (Email), Nanoid |
 
-### Core Modules
-| Module | Description | Key Tech |
-| :--- | :--- | :--- |
-| **Auth** | User authentication, Session management, Role-based Access Control. | JWT, Passport, Bcrypt |
-| **Messaging** | Real-time chat, Direct Messages, Channel Messages. | Socket.io, Kafka, Redis |
-| **Media** | Voice/Video token generation, Webhooks. | LiveKit SDK |
-| **Social** | Friend requests, Online status, Notifications. | Redis (Pub/Sub) |
-| **AI** | Conversation summaries, Smart discovery. | Gemini API, Pinecone |
+---
+
+## 🌟 Comprehensive Features
+
+### 🔐 Authentication & Security
+-   **Multi-Provider Auth**: Login with Email/Password, Google, GitHub, or Facebook.
+-   **Session Management**: JWT-based stateless authentication with secure HTTP-only cookies.
+-   **Password Recovery**: OTP-based email verification using Nodemailer.
+
+### 💬 Advanced Messaging
+-   **Event-Driven Architecture**: Messages are produced to **Kafka** topics and consumed by worker services to ensure high throughput.
+-   **Socket + Redis**: Real-time delivery using Socket.io, with Redis Pub/Sub syncing state across multiple server instances.
+-   **Rich Media**: Support for image/file uploads via Cloudinary and UploadThing.
+
+### 🎮 Servers & Community
+-   **Role-Based Access Control (RBAC)**: granular permissions for server optimization.
+-   **Channel Management**: Create Text and Voice channels, organize into Categories.
+-   **Invite System**: Generate unique invite links with expiration logic.
+
+### 📹 Voice & Video (LiveKit)
+-   **SFU Architecture**: Scalable generic conferencing using LiveKit.
+-   **Features**: Screen sharing, noise cancellation, and selective subscription.
+
+### 🧠 AI Integration (Gemini)
+-   **Chat Summaries**: AI generates concise summaries of missed conversations.
+-   **Smart Discovery**: Vector-based search using Pinecone to find relevant communities/messages.
+
+---
+
+## 🏗️ Architecture Deep Dive
+
+The backend employs a **Modular Monolith** pattern where distinct domains (Auth, Chat, Social) live in the same codebase but interact via event buses.
+
+### Data Flow for Chat
+1.  **Ingestion**: User sends message -> Socket Server -> **Kafka Producer**.
+2.  **Processing**: **Kafka Consumer** reads message -> Validates -> saves to **PostgreSQL**.
+3.  **Delivery**: Consumer publishes to **Redis Pub/Sub** -> All Socket Servers receive event -> Deliver to connected clients.
+
 
 ### System Diagram
 ```mermaid

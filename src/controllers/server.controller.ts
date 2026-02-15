@@ -193,6 +193,18 @@ export const joinServer = catchAsync(
       throw new AppError("Invalid invite code", 404);
     }
 
+    // Check if user is banned
+    const bannedUser = await client.bannedUser.findFirst({
+      where: {
+        userId,
+        serverId: server.id,
+      },
+    });
+
+    if (bannedUser) {
+      throw new AppError("You are banned from this server", 403);
+    }
+
     // Check if already a member
     const existingMember = await client.member.findFirst({
       where: {
@@ -686,11 +698,20 @@ export const banMember = catchAsync(
       client.member.delete({
         where: { id: memberId },
       }),
-      client.bannedUser.create({
-        data: {
+      client.bannedUser.upsert({
+        where: {
+          userId_serverId: {
+            userId: memberToBan.userId,
+            serverId: serverId,
+          },
+        },
+        create: {
           userId: memberToBan.userId,
           serverId: serverId,
-          reason: "Banned by moderator", // Could pass this in body
+          reason: req.body.reason || "Banned by moderator",
+        },
+        update: {
+          reason: req.body.reason || "Banned by moderator",
         },
       }),
     ]);
@@ -830,6 +851,78 @@ export const updateMemberRole = catchAsync(
         memberId,
         role,
         roleIds,
+    });
+  }
+);
+
+export const getBannedUsers = catchAsync(
+  async (req: AuthRequest, res: Response) => {
+    const { serverId } = req.params;
+    const userId = req.userId!;
+
+    if (!serverId) {
+      throw new AppError("Server ID is required", 400);
+    }
+
+    // specific permission check? Admin/Mod
+    const member = await client.member.findFirst({
+        where: { userId, serverId, role: { in: ["ADMIN", "MODERATOR"] } }
+    });
+
+    if (!member) {
+        throw new AppError("You do not have permission to view banned users", 403);
+    }
+
+    const bannedUsers = await client.bannedUser.findMany({
+        where: { serverId },
+        include: {
+            user: {
+                select: {
+                    id: true,
+                    username: true,
+                    imageUrl: true,
+                }
+            }
+        }
+    });
+
+    console.log(`Fetched ${bannedUsers.length} banned users for server ${serverId}`);
+
+
+    res.status(200).json({
+        success: true,
+        bannedUsers
+    });
+  }
+);
+
+export const unbanMember = catchAsync(
+  async (req: AuthRequest, res: Response) => {
+    const { serverId, userId: bannedUserId } = req.params;
+    const userId = req.userId!;
+
+    if (!serverId || !bannedUserId) {
+        throw new AppError("Server ID and User ID are required", 400);
+    }
+
+    const member = await client.member.findFirst({
+        where: { userId, serverId, role: { in: ["ADMIN", "MODERATOR"] } }
+    });
+
+    if (!member) {
+        throw new AppError("You do not have permission to unban users", 403);
+    }
+
+    await client.bannedUser.deleteMany({
+        where: {
+            serverId,
+            userId: bannedUserId
+        }
+    });
+
+    res.status(200).json({
+        success: true,
+        message: "User unbanned successfully"
     });
   }
 );

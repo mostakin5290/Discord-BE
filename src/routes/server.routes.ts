@@ -14,6 +14,8 @@ import {
   banMember,
   deleteServer,
   updateMemberRole,
+  getBannedUsers,
+  unbanMember,
 } from "../controllers/server.controller.js";
 import { protect } from "../middleware/user.middleware.js";
 import roleRoutes from "./role.routes.js";
@@ -41,6 +43,9 @@ serverRoutes.post("/ban/:serverId/:memberId", banMember as any);
 
 serverRoutes.delete("/:serverId", deleteServer as any);
 serverRoutes.patch("/:serverId/members/:memberId/role", updateMemberRole as any);
+
+serverRoutes.get("/:serverId/bans", getBannedUsers as any);
+serverRoutes.delete("/:serverId/bans/:userId", unbanMember as any);
 
 
 export default serverRoutes;

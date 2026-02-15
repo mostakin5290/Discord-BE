@@ -25,11 +25,8 @@
   <rect x="50" y="80" width="700" height="80" class="box" stroke-dasharray="5,5"/>
   <text x="400" y="70" class="text" fill="#99AAB5">Client Layer</text>
   
-  <rect x="150" y="100" width="120" height="40" class="service" fill="#5865F2"/>
-  <text x="210" y="125" class="text">React Web</text>
-  
-  <rect x="530" y="100" width="120" height="40" class="service" fill="#5865F2"/>
-  <text x="590" y="125" class="text">Mobile App</text>
+  <rect x="300" y="100" width="200" height="40" class="service" fill="#5865F2"/>
+  <text x="400" y="125" class="text">React Web Application</text>
 
   <!-- Load Balancer / Gateway -->
   <rect x="300" y="200" width="200" height="50" class="box"/>
@@ -74,8 +71,7 @@
 
   <!-- Connections -->
   <!-- Client to Gateway -->
-  <line x1="210" y1="140" x2="350" y2="200" class="arrow"/>
-  <line x1="590" y1="140" x2="450" y2="200" class="arrow"/>
+  <line x1="400" y1="140" x2="400" y2="200" class="arrow"/>
 
   <!-- Gateway to Services -->
   <line x1="350" y1="250" x2="160" y2="330" class="arrow"/>

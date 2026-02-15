@@ -69,10 +69,13 @@ import { initNotificationQueueConsumers } from "./services/queue/notificationQue
 const server = app.listen(port, async () => {
   try {
     await client.$connect();
+    console.log("Database connected successfully");
     initSocket(server);
     await initChatQueueConsumers();
     await initServerQueueConsumers();
     await initNotificationQueueConsumers();
+
+    console.log(`Server is running on port ${port}`);
 
   } catch (error) {
     console.error("Initialization error:", error);

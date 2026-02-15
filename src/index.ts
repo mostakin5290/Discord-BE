@@ -13,6 +13,7 @@ import dmRoutes from "./routes/dm.routes.js";
 import dmActionsRoutes from "./routes/dm-actions.routes.js";
 import discoveryRoutes from "./routes/discovery.routes.js";
 import notificationRoutes from "./routes/notification.route.js";
+import summaryRoutes from "./routes/summary.routes.js";
 
 import dotenv from "dotenv";
 dotenv.config();
@@ -52,6 +53,7 @@ app.use("/api/v1/dm-actions", dmActionsRoutes);
 app.use("/api/v1/livekit", livekitRoutes);
 app.use("/api/v1/discovery", discoveryRoutes);
 app.use("/api/v1/notification", notificationRoutes);
+app.use("/api/v1/summary", summaryRoutes);
 
 app.get("/health", (req, res) => {
   res.status(200).json({

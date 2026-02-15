@@ -5,8 +5,6 @@ export const createEmbedding = async (content: string) => {
         apiKey: process.env.GOOGLE_GEMINI_API_KEY!,
     });
 
-    console.log(10)
-
     const response = await ai.models.embedContent({
         model: "gemini-embedding-001",
         contents: content.trim().split("\n").map((line) => line.trim()),

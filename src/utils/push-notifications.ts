@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 
 import type { NotificationPayload } from "../types/index.js";
-import { produceMessage } from "../services/kafka.js";
+import { produceMessage } from "../services/messaging/kafka.js";
 
 export const sendPushNotification = async ({ message, topic, notifyLink, type, userId, createdAt, read, readAt, updatedAt }: NotificationPayload) => {
   const notificationId = randomUUID();

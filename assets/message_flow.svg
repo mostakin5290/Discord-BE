@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 300">
+  <rect width="900" height="300" fill="#2C2F33"/>
+  <style>
+    .box { fill: #23272A; stroke: #5865F2; stroke-width: 2; rx: 8; }
+    .text { fill: #FFFFFF; font-family: Segoe UI, Arial, sans-serif; font-size: 14px; text-anchor: middle; font-weight: 500; }
+    .arrow { stroke: #99AAB5; stroke-width: 2; marker-end: url(#arrow); }
+    .label { fill: #B9BBBE; font-size: 11px; text-anchor: middle; }
+    .kafka { stroke: #EB459E; }
+    .redis { stroke: #ED4245; }
+    .db { stroke: #FEE75C; }
+  </style>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#99AAB5"/>
+    </marker>
+  </defs>
+
+  <!-- Nodes -->
+  <rect x="20" y="120" width="80" height="50" class="box"/> 
+  <text x="60" y="150" class="text">Sender</text>
+
+  <rect x="150" y="120" width="100" height="50" class="box"/>
+  <text x="200" y="150" class="text">Socket A</text>
+
+  <rect x="300" y="120" width="100" height="50" class="box kafka"/>
+  <text x="350" y="150" class="text">Kafka</text>
+
+  <rect x="450" y="120" width="100" height="50" class="box"/>
+  <text x="500" y="150" class="text">Consumer</text>
+
+  <rect x="600" y="50" width="100" height="50" class="box db"/>
+  <text x="650" y="80" class="text">DB</text>
+
+  <rect x="600" y="190" width="100" height="50" class="box redis"/>
+  <text x="650" y="220" class="text">Redis Pub</text>
+
+  <rect x="750" y="120" width="100" height="50" class="box"/>
+  <text x="800" y="150" class="text">Socket B</text>
+
+  <!-- Flow -->
+  <line x1="100" y1="145" x2="150" y2="145" class="arrow"/>
+  <text x="125" y="140" class="label">Emit</text>
+
+  <line x1="250" y1="145" x2="300" y2="145" class="arrow"/>
+  <text x="275" y="140" class="label">Produce</text>
+
+  <line x1="400" y1="145" x2="450" y2="145" class="arrow"/>
+  <text x="425" y="140" class="label">Consume</text>
+
+  <line x1="500" y1="120" x2="600" y2="75" class="arrow"/>
+  <text x="550" y="90" class="label">Persist</text>
+
+  <line x1="500" y1="170" x2="600" y2="215" class="arrow"/>
+  <text x="550" y="200" class="label">Publish</text>
+
+  <line x1="700" y1="215" x2="800" y2="170" class="arrow"/>
+  <text x="750" y="200" class="label">Subscribe</text>
+  
+  <rect x="800" y="220" width="80" height="50" class="box"/>
+  <text x="840" y="250" class="text">Receiver</text>
+  <line x1="800" y1="170" x2="840" y2="220" class="arrow"/>
+
+</svg>

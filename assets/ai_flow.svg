@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 250">
+  <rect width="700" height="250" fill="#2C2F33"/>
+  <style>
+    .box { fill: #23272A; stroke: #5865F2; stroke-width: 2; rx: 8; }
+    .text { fill: #FFFFFF; font-family: Segoe UI, Arial, sans-serif; font-size: 14px; text-anchor: middle; font-weight: 500; }
+    .arrow { stroke: #99AAB5; stroke-width: 2; marker-end: url(#arrow); }
+    .label { fill: #B9BBBE; font-size: 12px; text-anchor: middle; }
+    .ai { stroke: #8E75B2; }
+    .db { stroke: #FEE75C; }
+  </style>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#99AAB5"/>
+    </marker>
+  </defs>
+
+  <!-- Nodes -->
+  <rect x="30" y="100" width="80" height="50" class="box"/> 
+  <text x="70" y="130" class="text">Client</text>
+
+  <rect x="180" y="100" width="100" height="50" class="box"/>
+  <text x="230" y="130" class="text">API Gateway</text>
+
+  <rect x="350" y="100" width="100" height="50" class="box ai"/>
+  <text x="400" y="130" class="text">AI Service</text>
+
+  <rect x="550" y="40" width="120" height="50" class="box ai"/>
+  <text x="610" y="70" class="text">Google Gemini</text>
+
+  <rect x="550" y="160" width="120" height="50" class="box db"/>
+  <text x="610" y="190" class="text">Pinecone (RAG)</text>
+
+  <!-- Flow -->
+  <line x1="110" y1="125" x2="180" y2="125" class="arrow"/>
+  <text x="145" y="120" class="label">Ask AI</text>
+
+  <line x1="280" y1="125" x2="350" y2="125" class="arrow"/>
+
+  <!-- AI to Gemini -->
+  <line x1="400" y1="100" x2="550" y2="65" class="arrow"/>
+  <text x="475" y="80" class="label">Generate</text>
+
+  <!-- AI to Pinecone -->
+  <line x1="400" y1="150" x2="550" y2="185" class="arrow"/>
+  <text x="475" y="170" class="label">Context Search</text>
+
+  <!-- Return -->
+  <path d="M 550 65 Q 400 20 230 40 Q 180 50 110 100" fill="none" class="arrow" stroke-dasharray="4"/>
+  <text x="300" y="40" class="label">Stream Response</text>
+
+</svg>

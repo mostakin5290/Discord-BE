@@ -36,10 +36,22 @@
 -   **Socket + Redis**: Real-time delivery using Socket.io, with Redis Pub/Sub syncing state across multiple server instances.
 -   **Rich Media**: Support for image/file uploads via Cloudinary and UploadThing.
 
+**Server Chat**
+
+https://github.com/MehulxBuilds/user-attachments/raw/refs/heads/main/assets/server-chat.mp4
+
 ### 🎮 Servers & Community
 -   **Role-Based Access Control (RBAC)**: granular permissions for server optimization.
 -   **Channel Management**: Create Text and Voice channels, organize into Categories.
 -   **Invite System**: Generate unique invite links with expiration logic.
+
+**Server Creation**
+
+https://github.com/MehulxBuilds/user-attachments/raw/refs/heads/main/assets/server-creation.mp4
+
+**Push Notifications**
+
+https://github.com/MehulxBuilds/user-attachments/raw/refs/heads/main/assets/discord-notification.mp4
 
 ### 📹 Voice & Video (LiveKit)
 -   **SFU Architecture**: Scalable generic conferencing using LiveKit.
@@ -48,6 +60,14 @@
 ### 🧠 AI Integration (Gemini)
 -   **Chat Summaries**: AI generates concise summaries of missed conversations.
 -   **Smart Discovery**: Vector-based search using Pinecone to find relevant communities/messages.
+
+### 🧭 Discovery
+-   **Server Search**: Find Servers of your choice.
+-   **Smart Discovery**: Vector-based search using Pinecone to find relevant Servers.
+
+**App Discovery**
+
+https://github.com/MehulxBuilds/user-attachments/raw/refs/heads/main/assets/discovery.mp4
 
 ---
 
@@ -77,7 +97,6 @@ The backend employs a **Modular Monolith** pattern where distinct domains (Auth,
 
 #### 4. AI & Vector Search
 ![AI Flow](./assets/ai_flow.svg)
-
 
 ---
 

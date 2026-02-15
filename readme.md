@@ -62,46 +62,21 @@ The backend employs a **Modular Monolith** pattern where distinct domains (Auth,
 
 
 ### System Diagram
-```mermaid
-graph TD
-    subgraph API_Gateway ["🛡️ API Gateway"]
-        API[Express REST API]
-        Auth[JWT Auth]
-        WS[WebSocket Server]
-    end
+![System Architecture](./assets/architecture_diagram.svg)
 
-    subgraph Services ["⚙️ Micro-Services"]
-        Auth_Svc[Auth Service]
-        Msg_Svc[Messaging Service]
-        AI_Svc[AI Service]
-        Media_Svc[Media Service]
-    end
+### 🔗 Feature Workflows
 
-    subgraph Async ["⚡ Async Layer"]
-        Kafka{Apache Kafka}
-        Redis_Pub((Redis Pub/Sub))
-        Workers[Job Consumers]
-    end
+#### 1. Authentication Flow
+![Auth Flow](./assets/auth_flow.svg)
 
-    subgraph Data ["💾 Persistence"]
-        DB[(PostgreSQL)]
-        Cache[(Redis Cache)]
-        Vector[(Pinecone)]
-    end
+#### 2. Messaging Pipeline (Socket -> Kafka -> Redis)
+![Message Flow](./assets/message_flow.svg)
 
-    API --> Auth_Svc
-    API --> Msg_Svc
-    WS <--> Redis_Pub
-    WS --> Kafka
+#### 3. Voice & Video (LiveKit)
+![Media Flow](./assets/media_flow.svg)
 
-    Msg_Svc --> Kafka
-    Kafka -.-> Workers
-    Workers --> DB
-    Workers --> Cache
-
-    AI_Svc --> Vector
-    AI_Svc --> DB
-```
+#### 4. AI & Vector Search
+![AI Flow](./assets/ai_flow.svg)
 
 
 ---

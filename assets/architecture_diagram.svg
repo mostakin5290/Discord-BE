@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600">
+  <!-- Background -->
+  <rect width="800" height="600" fill="#2C2F33"/>
+  
+  <!-- Styles -->
+  <style>
+    .box { fill: #23272A; stroke: #5865F2; stroke-width: 2; rx: 10; }
+    .text { fill: #FFFFFF; font-family: Arial, sans-serif; font-size: 14px; text-anchor: middle; }
+    .title { fill: #FFFFFF; font-family: Arial, sans-serif; font-size: 20px; font-weight: bold; text-anchor: middle; }
+    .arrow { stroke: #99AAB5; stroke-width: 2; marker-end: url(#arrowhead); }
+    .service { fill: #40444B; stroke: #5865F2; stroke-width: 1; rx: 5; }
+    .db { fill: #2C2F33; stroke: #FAA61A; stroke-width: 2; rx: 5; }
+  </style>
+  
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#99AAB5"/>
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="400" y="40" class="title">Discord Clone Architecture</text>
+
+  <!-- Client Layer -->
+  <rect x="50" y="80" width="700" height="80" class="box" stroke-dasharray="5,5"/>
+  <text x="400" y="70" class="text" fill="#99AAB5">Client Layer</text>
+  
+  <rect x="150" y="100" width="120" height="40" class="service" fill="#5865F2"/>
+  <text x="210" y="125" class="text">React Web</text>
+  
+  <rect x="530" y="100" width="120" height="40" class="service" fill="#5865F2"/>
+  <text x="590" y="125" class="text">Mobile App</text>
+
+  <!-- Load Balancer / Gateway -->
+  <rect x="300" y="200" width="200" height="50" class="box"/>
+  <text x="400" y="230" class="text">API Gateway / Load Balancer</text>
+
+  <!-- Services Layer -->
+  <rect x="50" y="300" width="700" height="120" class="box" stroke-dasharray="5,5"/>
+  <text x="400" y="290" class="text" fill="#99AAB5">Micro-Services</text>
+
+  <rect x="100" y="330" width="120" height="60" class="service"/>
+  <text x="160" y="355" class="text">Auth Service</text>
+  <text x="160" y="375" class="text" font-size="10">(JWT/Passport)</text>
+
+  <rect x="260" y="330" width="120" height="60" class="service"/>
+  <text x="320" y="355" class="text">Messaging</text>
+  <text x="320" y="375" class="text" font-size="10">(Standard Chat)</text>
+
+  <rect x="420" y="330" width="120" height="60" class="service"/>
+  <text x="480" y="355" class="text">Media Service</text>
+  <text x="480" y="375" class="text" font-size="10">(LiveKit/WebRTC)</text>
+
+  <rect x="580" y="330" width="120" height="60" class="service"/>
+  <text x="640" y="355" class="text">AI Service</text>
+  <text x="640" y="375" class="text" font-size="10">(Gemini/Pinecone)</text>
+
+  <!-- Async Layer -->
+  <rect x="340" y="440" width="120" height="40" class="service" stroke="#EB459E"/>
+  <text x="400" y="465" class="text">Kafka Event Bus</text>
+
+  <!-- Data Layer -->
+  <rect x="50" y="500" width="700" height="80" class="box" stroke-dasharray="5,5"/>
+  <text x="400" y="490" class="text" fill="#99AAB5">Data Layer</text>
+
+  <rect x="150" y="520" width="100" height="40" class="db"/>
+  <text x="200" y="545" class="text">PostgreSQL</text>
+
+  <rect x="350" y="520" width="100" height="40" class="db" stroke="#ED4245"/>
+  <text x="400" y="545" class="text">Redis Cache</text>
+
+  <rect x="550" y="520" width="100" height="40" class="db" stroke="#57F287"/>
+  <text x="600" y="545" class="text">Pinecone</text>
+
+  <!-- Connections -->
+  <!-- Client to Gateway -->
+  <line x1="210" y1="140" x2="350" y2="200" class="arrow"/>
+  <line x1="590" y1="140" x2="450" y2="200" class="arrow"/>
+
+  <!-- Gateway to Services -->
+  <line x1="350" y1="250" x2="160" y2="330" class="arrow"/>
+  <line x1="400" y1="250" x2="320" y2="330" class="arrow"/>
+  <line x1="400" y1="250" x2="480" y2="330" class="arrow"/>
+  <line x1="450" y1="250" x2="640" y2="330" class="arrow"/>
+
+  <!-- Services to Kafka -->
+  <line x1="320" y1="390" x2="380" y2="440" class="arrow"/>
+
+  <!-- Kafka to DB (Worker) -->
+  <line x1="400" y1="480" x2="200" y2="520" class="arrow"/>
+
+  <!-- Direct DB access -->
+  <line x1="160" y1="390" x2="200" y2="520" class="arrow"/>
+  <line x1="640" y1="390" x2="600" y2="520" class="arrow"/>
+  
+</svg>

@@ -4,7 +4,7 @@ import { Strategy as GitHubStrategy } from "passport-github2";
 import { Strategy as FacebookStrategy } from "passport-facebook";
 import client from "./db.js";
 import { env } from "./env.js";
-import { AuthService } from "../services/auth.service.js";
+import { AuthService } from "../services/auth/auth.service.js";
 
 passport.serializeUser((user: any, done) => {
   done(null, user.id);

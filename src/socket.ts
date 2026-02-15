@@ -10,15 +10,14 @@ import redis, {
   updateLastSeenInRedis,
   getLastSeenFromRedis,
   clearLastSeenFromRedis,
-} from "./services/redis.js";
-import { produceMessage } from "./services/kafka.js";
+} from "./services/cache/redis.js";
+import { produceMessage } from "./services/messaging/kafka.js";
 import { client } from "./config/db.js";
-import { syncLastSeenToDB } from "./services/lastSeenSync.js";
+import { syncLastSeenToDB } from "./services/cache/lastSeenSync.js";
 
 let io: Server;
 
 export const initSocket = (httpServer: HttpServer) => {
-  // Get allowed origins from environment or default to localhost
   const allowedOrigins = process.env.FRONTEND_BASE_URL
     ? [
       process.env.FRONTEND_BASE_URL,
@@ -59,7 +58,6 @@ export const initSocket = (httpServer: HttpServer) => {
       await setUserOnline(userId, "server-1");
       socket.join(userId);
 
-      // Periodic sync every 5 minutes
       const syncInterval = setInterval(() => {
         syncLastSeenToDB(userId).catch(console.error);
       }, 5 * 60 * 1000);
@@ -68,7 +66,6 @@ export const initSocket = (httpServer: HttpServer) => {
 
       socket.broadcast.emit("user_connected", { userId });
 
-      // Send list of online friends to the newly connected user
       try {
         const friends = await client.friend.findMany({
           where: { userId },
@@ -83,7 +80,6 @@ export const initSocket = (httpServer: HttpServer) => {
           }
         }
 
-        // Emit to this specific socket
         socket.emit("online_friends", { userIds: onlineFriends });
       } catch (error) {
         console.error("Error fetching online friends:", error);
@@ -126,26 +122,21 @@ export const initSocket = (httpServer: HttpServer) => {
       });
     });
 
-    // Update last seen in Redis
     socket.on("update_last_seen", async (data: { channelId: string; messageId: string }) => {
       const userId = socket.data.userId;
       if (userId) {
         await updateLastSeenInRedis(userId, data.channelId, data.messageId);
-        console.log(`📖 [REDIS] User ${userId} viewed message ${data.messageId} in channel ${data.channelId}`);
       }
     });
 
     socket.on("disconnect", async () => {
       const userId = socket.data.userId;
-      console.log("\n🔴 [DISCONNECT] User disconnecting:", userId);
       
       if (userId) {
-        // Get last seen data from Redis
         const lastSeenData = await getLastSeenFromRedis(userId);
         const entries = Object.entries(lastSeenData);
         
         if (entries.length > 0) {
-          console.log(`💾 [SAVING] Found ${entries.length} channels to save for user ${userId}`);
           
           try {
             const updates = entries.map(([channelId, messageId]) => 
@@ -162,16 +153,12 @@ export const initSocket = (httpServer: HttpServer) => {
             );
             
             await Promise.all(updates);
-            console.log(`✅ [SUCCESS] Last seen data saved to DB for user: ${userId}`);
           } catch (error) {
             console.error(`❌ [ERROR] Failed to save last seen:`, error);
           }
           
-          // Clear Redis
           await clearLastSeenFromRedis(userId);
-          console.log(`🗑️  [CLEANUP] Redis cleared for user ${userId}\n`);
         } else {
-          console.log(`ℹ️  [INFO] No last seen data to save for user ${userId}\n`);
         }
         
         await setUserOffline(userId);

@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import { env } from "./config/env.js";
+const axios = require('axios');
 import { globalErrorHandler } from "./middleware/errorHandler.js";
 import client from "./config/db.js";
 import serverRoutes from "./routes/server/server.routes.js";
@@ -25,6 +26,20 @@ const frontend_url = env.FRONTEND_BASE_URL;
 const allowedOrigins = process.env.FRONTEND_BASE_URL 
   ? [process.env.FRONTEND_BASE_URL, "http://localhost:5173"]
   : ["http://localhost:5173"];
+
+  const keepAlive = async () => {
+    try {
+        await axios.get('https://keepalive404.netlify.app/.netlify/functions/keepalive');
+
+        await axios.get('https://discord-be-yne6.onrender.com/keep-alive');
+
+    } catch (err) {
+        console.error('Keep-alive failed:', err);
+    }
+};
+
+setInterval(keepAlive, 14 * 60 * 1000);
+
 
 app.use(
   cors({

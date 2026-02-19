@@ -74,6 +74,13 @@ app.get("/health", (req, res) => {
   });
 });
 
+app.get("/keep-alive", (req, res) => {
+  res.status(200).json({
+    status: "alive",
+    timestamp: new Date().toISOString(),
+  });
+});
+
 app.use(globalErrorHandler);
 
 import { initSocket } from "./socket.js";
@@ -86,9 +93,28 @@ const server = app.listen(port, async () => {
     await client.$connect();
     console.log("Database connected successfully");
     initSocket(server);
-    await initChatQueueConsumers();
-    await initServerQueueConsumers();
-    await initNotificationQueueConsumers();
+    
+    // Initialize Kafka consumers - non-blocking
+    try {
+      await initChatQueueConsumers();
+      console.log("✅ Chat queue consumers initialized");
+    } catch (error) {
+      console.warn("⚠️ Kafka chat consumers failed (app will continue):", error instanceof Error ? error.message : error);
+    }
+    
+    try {
+      await initServerQueueConsumers();
+      console.log("✅ Server queue consumers initialized");
+    } catch (error) {
+      console.warn("⚠️ Kafka server consumers failed (app will continue):", error instanceof Error ? error.message : error);
+    }
+    
+    try {
+      await initNotificationQueueConsumers();
+      console.log("✅ Notification queue consumers initialized");
+    } catch (error) {
+      console.warn("⚠️ Kafka notification consumers failed (app will continue):", error instanceof Error ? error.message : error);
+    }
 
     console.log(`Server is running on port ${port}`);
 

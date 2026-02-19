@@ -3,15 +3,112 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { env } from "../../config/env.js";
 import { AppError } from "../../utils/AppError.js";
-
-import { sendOtpMail } from "../../utils/mailer.js";
+import redis from "../cache/redis.js";
+import { sendOtpMail, sendSignupOtpMail } from "../../utils/mailer.js";
 
 export class AuthService {
+  // Send OTP for signup (before user creation)
+  static async sendSignupOtp(data: any) {
+    const { email, firstName, username } = data;
+
+    if (!email || !firstName || !username) {
+      throw new AppError("Email, first name, and username are required", 400);
+    }
+
+    // Check if user already exists
+    const existingUser = await client.user.findFirst({
+      where: {
+        OR: [{ email }, { username }],
+      },
+    });
+
+    if (existingUser) {
+      throw new AppError(
+        "User with this email or username already exists",
+        400,
+      );
+    }
+
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Store OTP in Redis with 10 minutes expiry
+    const otpKey = `signup:otp:${email}`;
+    await redis.setex(otpKey, 600, otp); // 10 minutes
+
+    // Store user data temporarily
+    const tempDataKey = `signup:temp:${email}`;
+    await redis.setex(tempDataKey, 600, JSON.stringify(data));
+
+    // Send OTP email
+    try {
+      await sendSignupOtpMail({ to: email, otp, username: firstName });
+    } catch (error) {
+      console.error("Failed to send OTP email:", error);
+      throw new AppError("Failed to send verification email. Please try again.", 500);
+    }
+
+    return {
+      message: "Verification code sent to your email",
+      email,
+    };
+  }
+
+  // Verify signup OTP and return verification token
+  static async verifySignupOtp(data: any) {
+    const { email, otp } = data;
+
+    if (!email || !otp) {
+      throw new AppError("Email and OTP are required", 400);
+    }
+
+    // Get OTP from Redis
+    const otpKey = `signup:otp:${email}`;
+    const storedOtp = await redis.get(otpKey);
+
+    if (!storedOtp) {
+      throw new AppError("OTP expired or invalid", 400);
+    }
+
+    if (storedOtp !== otp.toString()) {
+      throw new AppError("Invalid OTP", 400);
+    }
+
+    // Generate verification token
+    const verificationToken = jwt.sign(
+      { email, type: "signup-verification" },
+      env.JWT_SECRET,
+      { expiresIn: "15m" }
+    );
+
+    // Delete OTP from Redis
+    await redis.del(otpKey);
+
+    return {
+      message: "Email verified successfully",
+      verificationToken,
+    };
+  }
+
   static async signup(data: any) {
-    const { firstName, lastName, username, email, password } = data;
+    const { firstName, lastName, username, email, password, verificationToken } = data;
 
     if (!firstName || !lastName || !username || !email || !password) {
       throw new AppError("All fields are required", 400);
+    }
+
+    // Verify the verification token
+    if (!verificationToken) {
+      throw new AppError("Email verification required", 400);
+    }
+
+    try {
+      const decoded = jwt.verify(verificationToken, env.JWT_SECRET) as any;
+      if (decoded.email !== email || decoded.type !== "signup-verification") {
+        throw new AppError("Invalid verification token", 400);
+      }
+    } catch (error) {
+      throw new AppError("Invalid or expired verification token", 400);
     }
 
     const existingUser = await client.user.findFirst({
@@ -29,9 +126,6 @@ export class AuthService {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Generate OTP for email verification
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
     const newUser = await client.user.create({
       data: {
         firstName,
@@ -39,23 +133,29 @@ export class AuthService {
         username,
         email,
         password: hashedPassword,
-        resetOtp: otp,
-        isOtpVerified: false,
-        otpExpires: new Date(Date.now() + 10 * 60 * 1000), // 10 mins
+        isOtpVerified: true, // Already verified
       },
     });
 
-    // Send OTP email
-    try {
-      await sendOtpMail({ to: email, otp });
-    } catch (error) {
-      console.error("Failed to send OTP email:", error);
-      // Don't fail signup if email fails, but log it
-    }
+    // Generate JWT token
+    const token = jwt.sign({ userId: newUser.id }, env.JWT_SECRET, {
+      expiresIn: "7d",
+    });
+
+    // Clean up temp data
+    await redis.del(`signup:temp:${email}`);
 
     return {
-      message: "Account created successfully! Please check your email for verification code.",
-      email: newUser.email,
+      message: "Account created successfully!",
+      user: {
+        id: newUser.id,
+        firstName: newUser.firstName,
+        lastName: newUser.lastName,
+        username: newUser.username,
+        email: newUser.email,
+        imageUrl: newUser.imageUrl,
+      },
+      token,
     };
   }
 

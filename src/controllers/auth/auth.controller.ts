@@ -7,6 +7,36 @@ import { AppError } from "../../utils/AppError.js";
 import cloudinary from "../../config/cloudinary.js";
 import { uploadToCloudinary } from "../../utils/cloudinary.js";
 
+// Send OTP for signup verification
+export const sendSignupOtp = catchAsync(async (req: Request, res: Response) => {
+  let body = req.body;
+  if (typeof body === "string") {
+    try {
+      body = JSON.parse(body);
+    } catch (e) {
+      // not JSON
+    }
+  }
+
+  const result = await AuthService.sendSignupOtp(body);
+  res.status(200).json(result);
+});
+
+// Verify signup OTP
+export const verifySignupOtp = catchAsync(async (req: Request, res: Response) => {
+  let body = req.body;
+  if (typeof body === "string") {
+    try {
+      body = JSON.parse(body);
+    } catch (e) {
+      // not JSON
+    }
+  }
+
+  const result = await AuthService.verifySignupOtp(body);
+  res.status(200).json(result);
+});
+
 export const signup = catchAsync(async (req: Request, res: Response) => {
   let body = req.body;
   if (typeof body === "string") {

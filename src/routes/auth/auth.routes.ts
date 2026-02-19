@@ -2,6 +2,8 @@ import { Router } from "express";
 import {
   login,
   signup,
+  sendSignupOtp,
+  verifySignupOtp,
   socialCallback,
   getMe,
   sendOtp,
@@ -19,7 +21,11 @@ import passport from "passport";
 const router = Router();
 const upload = multer();
 
+// Signup flow (OTP first, then registration)
+router.post("/send-signup-otp", upload.none(), sendSignupOtp);
+router.post("/verify-signup-otp", upload.none(), verifySignupOtp);
 router.post("/signup", upload.none(), signup);
+
 router.post("/login", upload.none(), login);
 
 // Forgot / Reset password

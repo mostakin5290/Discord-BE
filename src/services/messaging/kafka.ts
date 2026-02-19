@@ -21,15 +21,23 @@ const kafkaConfig: any = {
 
 if (env.KAFKA.SSL) {
   const projectRoot = path.resolve(__dirname, "../../..");
-  kafkaConfig.ssl = {
-    rejectUnauthorized: true,
-    ca: [fs.readFileSync(path.join(projectRoot, env.KAFKA.CA_CERT), "utf-8")],
-    cert: fs.readFileSync(
-      path.join(projectRoot, env.KAFKA.CLIENT_CERT),
-      "utf-8",
-    ),
-    key: fs.readFileSync(path.join(projectRoot, env.KAFKA.CLIENT_KEY), "utf-8"),
-  };
+  const caPath = path.join(projectRoot, env.KAFKA.CA_CERT);
+  const certPath = path.join(projectRoot, env.KAFKA.CLIENT_CERT);
+  const keyPath = path.join(projectRoot, env.KAFKA.CLIENT_KEY);
+  
+  // Check if certificate files exist
+  if (fs.existsSync(caPath) && fs.existsSync(certPath) && fs.existsSync(keyPath)) {
+    kafkaConfig.ssl = {
+      rejectUnauthorized: true,
+      ca: [fs.readFileSync(caPath, "utf-8")],
+      cert: fs.readFileSync(certPath, "utf-8"),
+      key: fs.readFileSync(keyPath, "utf-8"),
+    };
+    console.log("Kafka SSL certificates loaded");
+  } else {
+    console.warn("Kafka SSL certificates not found, continuing without SSL");
+    kafkaConfig.ssl = false;
+  }
 }
 
 const kafka = new Kafka(kafkaConfig);

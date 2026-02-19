@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import { env } from "./config/env.js";
-const axios = require('axios');
+import axios from "axios";
 import { globalErrorHandler } from "./middleware/errorHandler.js";
 import client from "./config/db.js";
 import serverRoutes from "./routes/server/server.routes.js";

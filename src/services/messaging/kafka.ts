@@ -20,11 +20,15 @@ const kafkaConfig: any = {
 };
 
 if (env.KAFKA.SSL) {
-  const projectRoot = path.resolve(__dirname, "../../..");
-  const caPath = path.join(projectRoot, env.KAFKA.CA_CERT);
-  const certPath = path.join(projectRoot, env.KAFKA.CLIENT_CERT);
-  const keyPath = path.join(projectRoot, env.KAFKA.CLIENT_KEY);
-  
+  // const projectRoot = path.resolve(__dirname, "../../..");
+  // const caPath = path.join(projectRoot, env.KAFKA.CA_CERT);
+  // const certPath = path.join(projectRoot, env.KAFKA.CLIENT_CERT);
+  // const keyPath = path.join(projectRoot, env.KAFKA.CLIENT_KEY);
+
+  const caPath = env.KAFKA.CA_CERT;
+  const certPath = env.KAFKA.CLIENT_CERT;
+  const keyPath = env.KAFKA.CLIENT_KEY;
+
   // Check if certificate files exist
   if (fs.existsSync(caPath) && fs.existsSync(certPath) && fs.existsSync(keyPath)) {
     kafkaConfig.ssl = {

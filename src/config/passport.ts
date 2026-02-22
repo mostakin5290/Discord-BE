@@ -27,7 +27,7 @@ if (GOOGLE.CLIENT_ID && GOOGLE.CLIENT_SECRET) {
       {
         clientID: GOOGLE.CLIENT_ID,
         clientSecret: GOOGLE.CLIENT_SECRET,
-        callbackURL: "/api/v1/auth/google/callback",
+        callbackURL: `${env.SERVER_BASE_URL}/api/v1/auth/google/callback`,
       },
       async (accessToken, refreshToken, profile, done) => {
         try {
@@ -46,6 +46,7 @@ if (GOOGLE.CLIENT_ID && GOOGLE.CLIENT_SECRET) {
           );
           return done(null, user);
         } catch (error: any) {
+          console.log(error)
           return done(error, undefined);
         }
       }
@@ -59,7 +60,7 @@ if (GITHUB.CLIENT_ID && GITHUB.CLIENT_SECRET) {
       {
         clientID: GITHUB.CLIENT_ID,
         clientSecret: GITHUB.CLIENT_SECRET,
-        callbackURL: "/api/v1/auth/github/callback",
+        callbackURL: `${env.SERVER_BASE_URL}/api/v1/auth/github/callback`,
         scope: ["user:email"],
       },
       async (
@@ -104,7 +105,7 @@ if (FACEBOOK.APP_ID && FACEBOOK.APP_SECRET) {
       {
         clientID: FACEBOOK.APP_ID,
         clientSecret: FACEBOOK.APP_SECRET,
-        callbackURL: "/api/v1/auth/v1/facebook/callback",
+        callbackURL: `${env.SERVER_BASE_URL}/api/v1/auth/v1/facebook/callback`,
         profileFields: ["id", "emails", "name"],
       },
       async (

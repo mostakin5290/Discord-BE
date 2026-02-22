@@ -6,6 +6,7 @@ export const env = {
   PORT: process.env.PORT || "3000",
   NODE_ENV: process.env.NODE_ENV || "development",
   FRONTEND_BASE_URL: process.env.FRONTEND_BASE_URL || "http://localhost:3000",
+  SERVER_BASE_URL: process.env.SERVER_BASE_URL || "http://localhost:3000",
   JWT_SECRET: process.env.JWT_SECRET || "secret",
   GOOGLE: {
     CLIENT_ID: process.env.GOOGLE_CLIENT_ID || "",
